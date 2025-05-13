@@ -1,0 +1,2 @@
+order_p,order_d,order_q,seasonal_order_P,seasonal_order_D,seasonal_order_Q,seasonal_order_s,MSE,MAE,R2
+2,1,1,2,0,1,7,247.13119355859385,11.187579333872582,0.20082242969465958

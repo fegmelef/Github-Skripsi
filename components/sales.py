@@ -11,10 +11,11 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 
 
 def render_sales_summary(df, start_year, end_year):
-    
+
     # region title & df Sales
     col1, col2 = st.columns([9, 1])
 
@@ -143,18 +144,18 @@ def render_sales_summary(df, start_year, end_year):
         )
 
     # endregion card sales
-    
+
     # region chart sales
     chart_option = st.radio(
         "Filter:",
         # options=["Sales", "Income", "YoY Growth Sales", "YoY Growth Income", "Sales with YoY Growth", "Income with YoY Growth"],
-        options=["Sales", "Income", "YoY Growth Sales", "YoY Growth Income"],
+        options=["Pax Volume", "Sales Volume", "Sales Value",
+                 "YoY Growth (Pax Volume)", "YoY Growth (Sales Volume)", "YoY Growth (Sales Value)"],
         key="chart_option",
         horizontal=True
     )
     col1, col2 = st.columns(2)
 
-    # Hitung Order Count per bulan
     monthly_orders = (
         filtered_df
         .groupby(['Issued Year', 'Issued Month'])
@@ -162,32 +163,27 @@ def render_sales_summary(df, start_year, end_year):
         .reset_index(name='Order Count')
     )
 
-    # Hitung Income (Grand Total) per bulan
     monthly_income = (
         filtered_df
         .groupby(['Issued Year', 'Issued Month'])['Grand Total']
         .sum()
-        .reset_index(name='Total Income')
+        .reset_index(name='Sales Value')
     )
 
-    # Pivot untuk Order Count
     sales_pivot = monthly_orders.pivot(
         index='Issued Month',
         columns='Issued Year',
         values='Order Count'
     ).fillna(0).sort_index()
 
-    # Pivot untuk Income
     income_pivot = monthly_income.pivot(
         index='Issued Month',
         columns='Issued Year',
-        values='Total Income'
+        values='Sales Value'
     ).fillna(0).sort_index()
 
-    # Copy untuk hitung YoY Sales
     pivot_orders = sales_pivot.copy()
 
-    # Hitung YoY Growth untuk Order
     if len(pivot_orders.columns) > 1:
         for year in pivot_orders.columns[1:]:
             previous_year = year - 1
@@ -197,10 +193,8 @@ def render_sales_summary(df, start_year, end_year):
                      ) / pivot_orders[previous_year] * 100
                 )
 
-    # Copy untuk hitung YoY Income
     pivot_income = income_pivot.copy()
 
-    # Hitung YoY Growth untuk Income
     if len(pivot_income.columns) > 1:
         for year in pivot_income.columns[1:]:
             previous_year = year - 1
@@ -210,52 +204,205 @@ def render_sales_summary(df, start_year, end_year):
                      ) / pivot_income[previous_year] * 100
                 )
 
+    monthly_pax = (
+        filtered_df
+        .groupby(['Issued Year', 'Issued Month'])['Total Pax']
+        .sum()
+        .reset_index(name='Total Pax')
+    )
+
+    pax_pivot = monthly_pax.pivot(
+        index='Issued Month',
+        columns='Issued Year',
+        values='Total Pax'
+    ).fillna(0).sort_index()
+
+    pivot_pax = pax_pivot.copy()
+
+    if len(pivot_pax.columns) > 1:
+        for year in pivot_pax.columns[1:]:
+            previous_year = year - 1
+            if previous_year in pivot_pax.columns:
+                pivot_pax[f'YoY Growth Pax {year}'] = (
+                    (pivot_pax[year] - pivot_pax[previous_year]
+                     ) / pivot_pax[previous_year] * 100
+                )
+
     with col1:
-        if chart_option == "Sales":
-            st.write("### Sales per Year")
-            st.line_chart(sales_pivot)
+        if chart_option == "Sales Volume":
+            st.write("### Monthly Sales Volume by Year")
+            sales_melted = sales_pivot.reset_index().melt(
+                id_vars='Issued Month', var_name='Year', value_name='Orders')
+            fig = px.line(sales_melted, x='Issued Month', y='Orders', color='Year',
+                        labels={'Issued Month': 'Month', 'Orders': 'Order Count'})
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        elif chart_option == "Income":
-            st.write("### Total Income per Year")
-            st.line_chart(income_pivot)
+        elif chart_option == "YoY Growth (Sales Volume)":
+            st.write("### Year on Year Growth of Sales Volume (in %)")
+            yoy_sales_melted = pivot_orders.filter(regex='YoY Growth Sales').reset_index().melt(
+                id_vars='Issued Month', var_name='Year', value_name='Growth')
+            fig = px.line(yoy_sales_melted, x='Issued Month', y='Growth', color='Year',
+                        labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        elif chart_option == "YoY Growth Sales":
-            yoy_growth_sales = pivot_orders.filter(regex='YoY Growth Sales')
-            st.write("### Year on Year Growth Sales (in %)")
-            st.line_chart(yoy_growth_sales)
+        elif chart_option == "Sales Value":
+            st.write("### Monthly Sales Value by Year")
+            income_melted = income_pivot.reset_index().melt(
+                id_vars='Issued Month', var_name='Year', value_name='Income')
+            fig = px.line(income_melted, x='Issued Month', y='Income', color='Year',
+                        labels={'Issued Month': 'Month', 'Income': 'Sales Value'})
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        elif chart_option == "YoY Growth Income":
-            yoy_growth_income = pivot_income.filter(regex='YoY Growth Income')
-            st.write("### Year on Year Growth Income (in %)")
-            st.line_chart(yoy_growth_income)
+        elif chart_option == "YoY Growth (Sales Value)":
+            st.write("### Year on Year Growth of Sales Value (in %)")
+            yoy_income_melted = pivot_income.filter(regex='YoY Growth Income').reset_index().melt(
+                id_vars='Issued Month', var_name='Year', value_name='Growth')
+            fig = px.line(yoy_income_melted, x='Issued Month', y='Growth', color='Year',
+                        labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        elif chart_option == "Sales with YoY Growth":
-            st.write("### Sales per Year with YoY Growth (in %)")
-            st.line_chart(pivot_orders)
+        elif chart_option == "Pax Volume":
+            st.write("### Monthly Pax Volume by Year")
+            pax_melted = pax_pivot.reset_index().melt(
+                id_vars='Issued Month', var_name='Year', value_name='Pax')
+            fig = px.line(pax_melted, x='Issued Month', y='Pax', color='Year',
+                        labels={'Issued Month': 'Month', 'Pax': 'Total Passengers'})
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-        else:  # Income with YoY Growth
-            st.write("### Income per Year with YoY Growth (in %)")
-            st.line_chart(pivot_income)
+        elif chart_option == "YoY Growth (Pax Volume)":
+            st.write("### Year on Year Growth of Pax Volume (in %)")
+            yoy_pax_melted = pivot_pax.filter(regex='YoY Growth Pax').reset_index().melt(
+                id_vars='Issued Month', var_name='Year', value_name='Growth')
+            fig = px.line(yoy_pax_melted, x='Issued Month', y='Growth', color='Year',
+                        labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
+            fig.update_layout(
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.3,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
     with col2:
-        st.markdown(f"### Order Trend")
-        order_chart_line = (
-            filtered_df
-            .groupby(pd.Grouper(key='Issued Date', freq='M'))
-            .size()
-            .reset_index(name='Order Count')
-        )
+        # Common trend analysis function
+        def plot_trend(data, date_col, value_col, yaxis_title):
+            fig = go.Figure()
 
-        order_chart_line['Date Ordinal'] = order_chart_line['Issued Date'].apply(
-            lambda x: x.toordinal())
+            # Add actual data
+            fig.add_trace(
+                go.Scatter(x=data[date_col], y=data[value_col],
+                           name='Actual', mode='lines+markers')
+            )
 
-        slope, intercept, r_value, p_value, std_err = stats.linregress(
-            order_chart_line['Date Ordinal'], order_chart_line['Order Count'])
+            # Add trendline
+            z = np.polyfit(data[date_col].astype(np.int64) // 10**9,
+                           data[value_col], 1)
+            p = np.poly1d(z)
+            fig.add_trace(
+                go.Scatter(x=data[date_col], y=p(data[date_col].astype(np.int64) // 10**9),
+                           name='Trendline', line=dict(dash='dash'))
+            )
 
-        order_chart_line['Trendline'] = slope * \
-            order_chart_line['Date Ordinal'] + intercept
+            # Calculate stats
+            slope = z[0] * (60*60*24*365)  # Convert to yearly slope
+            trend_dir = "↑ Increasing" if slope > 0 else "↓ Decreasing"
+            r_squared = np.corrcoef(data[date_col].astype(np.int64) // 10**9,
+                                    data[value_col])[0, 1]**2
 
-        st.line_chart(order_chart_line.set_index(
-            'Issued Date')[['Order Count', 'Trendline']])
+            # Update layout
+            fig.update_layout(
+                xaxis_title='Date',
+                yaxis_title=yaxis_title,
+                showlegend=True,
+                legend=dict(
+                            orientation="h",  # Horizontal orientation
+                            yanchor="bottom",  # Anchor to bottom
+                            y=-0.3,          # Position below chart
+                            xanchor="center",  # Center horizontally
+                            x=0.5
+                )
+            )
 
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption(f"Trend: {trend_dir} | R-squared: {r_squared:.2f}")
+
+        if chart_option in ["Sales Volume", "YoY Growth (Sales Volume)"]:
+            st.write("### Monthly Sales Volume Trend")
+            data = (
+                filtered_df
+                .groupby(pd.Grouper(key='Issued Date', freq='M'))
+                .size()
+                .reset_index(name='Order Count')
+            )
+            plot_trend(data, 'Issued Date', 'Order Count', 'Order Count')
+
+        elif chart_option in ["Sales Value", "YoY Growth (Sales Value)"]:
+            st.write("### Monthly Sales Value Trend")
+            data = (
+                filtered_df
+                .groupby(pd.Grouper(key='Issued Date', freq='M'))
+                ['Grand Total']
+                .sum()
+                .reset_index(name='Grand Total')
+            )
+            plot_trend(data, 'Issued Date', 'Grand Total', 'Sales Value')
+
+        elif chart_option in ["Pax Volume", "YoY Growth (Pax Volume)"]:
+            st.write("### Monthly Pax Volume Trend")
+            data = (
+                filtered_df
+                .groupby(pd.Grouper(key='Issued Date', freq='M'))
+                ['Total Pax']
+                .sum()
+                .reset_index(name='Pax Volume')
+            )
+            plot_trend(data, 'Issued Date', 'Pax Volume', 'Total Passengers')
     # endregion chart sales

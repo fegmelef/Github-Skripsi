@@ -102,25 +102,25 @@ def filter_year_month(prefix: str, df: pd.DataFrame):
         st.checkbox("All Years", key=all_years_key,
                     on_change=year_check_change)
         selected_years = st.multiselect(
-            "Pilih Tahun (Issued Date)",
+            "Select Years (Issued Date)",
             options=available_years,
             key=selected_years_key,
             on_change=year_multi_change
         )
         if not st.session_state[all_years_key] and len(selected_years) == 0:
-            st.error("Harap pilih minimal satu tahun.")
+            st.error("Please select at least one year.")
 
     with col2:
         st.checkbox("All Months", key=all_months_key,
                     on_change=month_check_change)
         selected_months = st.multiselect(
-            "Pilih Bulan (Issued Date)",
+            "Select Months (Issued Date)",
             options=available_months,
             key=selected_months_key,
             on_change=month_multi_change
         )
         if not st.session_state[all_months_key] and len(selected_months) == 0:
-            st.error("Harap pilih minimal satu bulan.")
+            st.error("Please select at least one month.")
 
     if len(selected_years) > 0 and len(selected_months) > 0:
         filtered_df = df[
@@ -190,25 +190,25 @@ def filter_year_month_depart(prefix: str, df: pd.DataFrame):
         st.checkbox("All Years", key=all_years_key,
                     on_change=year_check_change)
         selected_years = st.multiselect(
-            "Pilih Tahun (Departure Date)",
+            "Select Years (Departure Date)",
             options=available_years,
             key=selected_years_key,
             on_change=year_multi_change
         )
         if not st.session_state[all_years_key] and len(selected_years) == 0:
-            st.error("Harap pilih minimal satu tahun.")
+            st.error("Please select at least one year.")
 
     with col2:
         st.checkbox("All Months", key=all_months_key,
                     on_change=month_check_change)
         selected_months = st.multiselect(
-            "Pilih Bulan (Departure Date)",
+            "Select Months (Departure Date)",
             options=available_months,
             key=selected_months_key,
             on_change=month_multi_change
         )
         if not st.session_state[all_months_key] and len(selected_months) == 0:
-            st.error("Harap pilih minimal satu bulan.")
+            st.error("Please select at least one month.")
 
     if len(selected_years) > 0 and len(selected_months) > 0:
         filtered_df = df_depart[

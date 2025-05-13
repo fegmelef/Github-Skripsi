@@ -75,7 +75,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
         )
 
         if option_airlines == 'Top Airlines':
-            top_n = st.slider("Pilih jumlah yang ingin ditampilkan",
+            top_n = st.slider("Select the quantity to display",
                               min_value=5, max_value=20, value=10)
 
             plane_pax = (
@@ -93,10 +93,20 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 title=f'Top {top_n} Airlines by Total Pax',
                 orientation='h'
             )
+
+            fig_plane.update_traces(
+                hovertemplate='<b>Airline:</b> %{y}<br><b>Total Pax:</b> %{x}<extra></extra>'
+            )
+
+            fig_plane.update_layout(
+                yaxis=dict(categoryorder='total ascending')
+            )
+
             st.plotly_chart(fig_plane)
 
+
         elif option_airlines == 'Top Providers':
-            top_n = st.slider("Pilih jumlah yang ingin ditampilkan",
+            top_n = st.slider("Select the quantity to display",
                               min_value=5, max_value=20, value=10)
 
             provider_pax = (
@@ -115,13 +125,22 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 title=f'Top {top_n} Providers by Total Pax',
                 orientation='h'
             )
+            
+            fig_provider.update_traces(
+                hovertemplate='<b>Provider:</b> %{y}<br><b>Total Pax:</b> %{x}<extra></extra>'
+            )
+
+            fig_provider.update_layout(
+                yaxis=dict(categoryorder='total ascending')
+            )
+
             st.plotly_chart(fig_provider)
 
         elif option_airlines == 'Airlines Over Time':
             available_airlines = df_direction['Segments/Plane/Name'].dropna().unique()
 
             selected_airlines = st.multiselect(
-                "Pilih Airlines",
+                "Select Airlines",
                 options=available_airlines,
                 default=available_airlines[0] if len(
                     available_airlines) > 0 else None
@@ -150,7 +169,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
             available_providers = df_direction['Segments/Provider/Display Name'].dropna(
             ).unique()
             selected_providers = st.multiselect(
-                "Pilih Provider", options=available_providers,
+                "Select Providers", options=available_providers,
                 default=available_providers[0] if len(
                     available_providers) > 0 else None
             )
@@ -330,13 +349,13 @@ def render_flights_summary(df, start_year, end_year, df_code):
 
             def categorize_time(hour):
                 if 5 <= hour <= 12:
-                    return 'Morning (5-12)'
-                elif 12 <= hour <= 17:
-                    return 'Afternoon (12-17)'
-                elif 17 <= hour <= 21:
-                    return 'Evening (17-21)'
+                    return 'Morning (5AM-12PM)'
+                elif 13 <= hour <= 17:
+                    return 'Afternoon (1PM-5PM)'
+                elif 18 <= hour <= 21:
+                    return 'Evening (6PM-9PM)'
                 else:  # 21-23 and 0-4
-                    return 'Night (21-5)'
+                    return 'Night (10PM-4AM)'
 
             if option_schedule == 'Arrival':
                 filtered_df['Segments/Arrival Date'] = pd.to_datetime(
@@ -348,7 +367,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
 
                 df_arrival = df_direction[
                     df_direction['Segments/Arrival Date'].dt.year.isin(selected_years) &
-                    df_direction['Segments/Arrival Date'].dt.month.isin(selected_months)
+                    df_direction['Segments/Arrival Date'].dt.month.isin(
+                        selected_months)
                 ]
 
                 with col1:
@@ -358,26 +378,26 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     hourly_pax = (
                         df_arrival.groupby('Arrival Hour')['Total Pax']
                         .sum()
-                        .reindex(range(24), fill_value=0)  # pastikan semua jam ada
+                        # pastikan semua jam ada
+                        .reindex(range(24), fill_value=0)
                         .reset_index()
                     )
 
                     fig_heatmap = px.imshow(
                         [hourly_pax['Total Pax']],  # List of list (1D heatmap)
-                        labels=dict(x="Jam Kedatangan", color="Total Pax"),
+                        labels=dict(x="Arrival Hours", color="Total Pax"),
                         x=hourly_pax['Arrival Hour'],
                         y=[""],  # satu baris
                         color_continuous_scale='YlGnBu'
                     )
 
                     fig_heatmap.update_layout(
-                        title='Heatmap Total Pax Berdasarkan Jam Kedatangan',
+                        title='Total Pax by Arrival Hours',
                         yaxis=dict(showticklabels=False),
                         height=200,
                     )
 
                     st.plotly_chart(fig_heatmap)
-
 
                 with col2:
                     df_arrival['Time Category'] = df_arrival['Arrival Hour'].apply(
@@ -393,7 +413,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
                         time_category_pax,
                         names='Time Category',
                         values='Total Pax',
-                        title='Distribusi Total Pax Berdasarkan Waktu Kedatangan'
+                        title='Total Pax Distribution by Arrival Hours'
                     )
                     st.plotly_chart(fig_time_category)
 
@@ -416,20 +436,20 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     hourly_pax = (
                         df_direction.groupby('Departure Hour')['Total Pax']
                         .sum()
-                        .reindex(range(24), fill_value=0) 
+                        .reindex(range(24), fill_value=0)
                         .reset_index()
                     )
 
                     fig_heatmap = px.imshow(
                         [hourly_pax['Total Pax']],
-                        labels=dict(x="Jam Keberangkatan", color="Total Pax"),
+                        labels=dict(x="Departure Hours", color="Total Pax"),
                         x=hourly_pax['Departure Hour'],
                         y=[""],  # hanya satu baris
                         color_continuous_scale='YlGnBu'
                     )
 
                     fig_heatmap.update_layout(
-                        title='Heatmap Total Pax Berdasarkan Jam Keberangkatan',
+                        title='Total Pax by Departure Hours',
                         yaxis=dict(showticklabels=False),
                         height=200,
                     )
@@ -450,7 +470,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
                         time_category_pax,
                         names='Time Category',
                         values='Total Pax',
-                        title='Distribusi Total Pax Berdasarkan Waktu Keberangkatan'
+                        title='Total Pax Distribution by Departure Hours'
                     )
                     st.plotly_chart(fig_time_category)
 
@@ -494,11 +514,12 @@ def render_flights_summary(df, start_year, end_year, df_code):
 
             sectors = df_routetop['Sector'].unique()
             with col2:
-                top_n = st.slider("Pilih Jumlah Top Route",
+                top_n = st.slider("Select the Number of Top Routes",
                                   min_value=5, max_value=20, value=10)
 
             with col1:
-                selected_sector = st.selectbox("Pilih Sector", options=sectors)
+                selected_sector = st.selectbox(
+                    "Select Sector", options=sectors)
 
             df_filtered_sector = df_routetop[df_routetop['Sector']
                                              == selected_sector]
@@ -521,6 +542,10 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 y='Route',
                 title=f'Top {top_n} {selected_sector} Routes',
                 orientation='h'
+            )
+
+            fig_route.update_layout(
+                yaxis=dict(categoryorder='total ascending')
             )
             st.plotly_chart(fig_route)
 
@@ -567,7 +592,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
 
             # Filter negara
             unique_countries = df_tujuan["iso_country"].dropna().unique()
-            selected_country = st.selectbox("Pilih Negara (ISO)", options=[
+            selected_country = st.selectbox("Select Country (ISO)", options=[
                 "All"] + sorted(unique_countries))
 
             # Filter negara
@@ -635,7 +660,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 get_gradient_color)
 
             ALL_LAYERS = {
-                "Asal": pdk.Layer(
+                "Origin": pdk.Layer(
                     "ScatterplotLayer",
                     data=df_asal_filtered,
                     get_position=["longitude", "latitude"],
@@ -644,7 +669,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     pickable=True,
                     auto_highlight=True,
                 ),
-                "Tujuan": pdk.Layer(
+                "Destination": pdk.Layer(
                     "ScatterplotLayer",
                     data=df_tujuan_filtered,
                     get_position=["longitude", "latitude"],
@@ -653,34 +678,35 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     pickable=True,
                     auto_highlight=True,
                 ),
-                "Nama Bandara": pdk.Layer(
+                "IATA Code Airport": pdk.Layer(
                     "TextLayer",
                     data=df_asal_filtered,
                     get_position=["longitude", "latitude"],
                     get_text="iata_code",
-                    get_color = [128, 0, 128, 230],
+                    get_color=[128, 0, 128, 230],
                     get_size=12,
                     get_alignment_baseline="'bottom'",
                 ),
             }
 
-            st.sidebar.markdown("### Map Layers")
+            st.sidebar.markdown("### Map Filter")
             selected_layer = st.sidebar.radio(
                 "Filter:",
-                ("Asal", "Tujuan")
+                ("Origin", "Destination")
             )
 
-            show_airport_names = st.sidebar.checkbox("Tampilkan Nama Bandara", value=True)
+            show_airport_names = st.sidebar.checkbox(
+                "Show IATA Code", value=True)
 
             selected_layers = []
 
-            if selected_layer == "Asal":
-                selected_layers.append(ALL_LAYERS["Asal"])
-            elif selected_layer == "Tujuan":
-                selected_layers.append(ALL_LAYERS["Tujuan"])
+            if selected_layer == "Origin":
+                selected_layers.append(ALL_LAYERS["Origin"])
+            elif selected_layer == "Destination":
+                selected_layers.append(ALL_LAYERS["Destination"])
 
             if show_airport_names:
-                selected_layers.append(ALL_LAYERS["Nama Bandara"])
+                selected_layers.append(ALL_LAYERS["IATA Code Airport"])
 
             if selected_layers:
                 center_lat = df_tujuan_filtered["latitude"].mean()
@@ -697,7 +723,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
                         ),
                         layers=selected_layers,
                         tooltip={
-                            "text": "Bandara: {name}\nKode: {iata_code}\nNegara: {iso_country}\nTotal Pax: {Total Pax Sum}"
+                            "text": "Airport: {name}\nCode: {iata_code}\nCountry: {iso_country}\nTotal Pax: {Total Pax Sum}"
                         },
                     )
                 )

@@ -15,7 +15,7 @@ st.session_state.df = df
 st.session_state.df_code = df_code
 
 st.title("Rodex Tours & Travel")
-st.write("Data Loaded! Data yang ditampilkan merupakan data History Issued Ticket yang sudah diupload sebelumnya.")
+st.write("Data Loaded! The displayed data is the History of Issued Tickets that was previously uploaded.")
 
 st.button("🔄 Refresh Data")
 st.dataframe(st.session_state.df, height=200, use_container_width=True)
@@ -26,7 +26,7 @@ if not os.path.exists(upload_folder):
     os.mkdir(upload_folder)
 
 uploaded_files = st.file_uploader(
-    'Anda bisa upload file Issued Ticket maupun merge file (langsung upload lebih dari 1 file) yang ada di bawah ini.',
+    'You can upload the Issued Ticket file or merge files (by uploading more than one file at once) using the section below.',
     type=['.xls', '.xlsx', '.csv'],
     accept_multiple_files=True,
     key="uploaded_files"
