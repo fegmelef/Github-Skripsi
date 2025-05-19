@@ -123,20 +123,31 @@ def render_input_date(df, start_year, end_year):
         if st.button("Update Holidays Until Today"):
             current_year = datetime.now().year
             country_holidays_new = holidays.CountryHoliday(
-                country_code, years=range(2022, current_year + 1))
+                country_code, years=range(2022, current_year + 1)
+            )
 
-            date_range_new = pd.date_range(
-                start="2022-01-01", end=datetime.today())
+            date_range_new = pd.date_range(start="2022-01-01", end=datetime.today())
             df_holiday_new = pd.DataFrame(date_range_new, columns=["Date"])
 
-            df_holiday_new["Holiday Name"] = df_holiday_new["Date"].apply(
-                lambda x: country_holidays_new.get(x.strftime('%Y-%m-%d'), ""))
+            def label_holiday_or_weekend(date):
+                date_str = date.strftime('%Y-%m-%d')
+                holiday_name = country_holidays_new.get(date_str, "")
+                if holiday_name:
+                    return holiday_name
+                elif date.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
+                    return "Weekend"
+                else:
+                    return ""
+
+            df_holiday_new["Holiday Name"] = df_holiday_new["Date"].apply(label_holiday_or_weekend)
 
             df_holiday_new["Libur"] = df_holiday_new["Holiday Name"].apply(
-                lambda x: 1 if x != "" else 0)
+                lambda x: 1 if x != "" else 0
+            )
 
             df_holiday_combined = pd.concat([df_holiday, df_holiday_new]).drop_duplicates(
-                subset=["Date"]).reset_index(drop=True)
+                subset=["Date"]
+            ).reset_index(drop=True)
 
             df_holiday_combined.to_excel(holiday_file, index=False)
 
@@ -144,3 +155,16 @@ def render_input_date(df, start_year, end_year):
 
     st.subheader("📅 Holiday List")
     st.dataframe(df_holiday[['Date', 'Holiday Name']].sort_values("Date").reset_index(drop=True))
+
+    st.write('*Glossary:*')
+
+    st.markdown("""
+    - **Holiday Name**  
+    A list of holiday for later use in statistical testing.  
+
+    - **Save Holiday Name**  
+    Saves the name of a holiday that is inputted.  
+
+    - **Update Holidays Until Today**  
+    Updates the holiday list to include all holidays up to the current date.  
+    """)

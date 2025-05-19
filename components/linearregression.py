@@ -15,6 +15,7 @@ import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
+from sklearn.preprocessing import StandardScaler
 
 
 def render_linear_regression(df, start_year, end_year):
@@ -40,9 +41,11 @@ def render_linear_regression(df, start_year, end_year):
         df['Segments/Departure Date'])
     df['Booking Date'] = pd.to_datetime(df['Booking Date'])
 
-    # Buat daily total pax
-    df_daily = df.groupby(
-        df['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
+    dftest = df.dropna(subset=['Segments/Departure Date'])
+    dftest = dftest.fillna(method='ffill')
+
+    df_daily = dftest.groupby(
+        dftest['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
     df_daily['Segments/Departure Date'] = pd.to_datetime(
         df_daily['Segments/Departure Date'])
 
@@ -92,7 +95,10 @@ def render_linear_regression(df, start_year, end_year):
     # Gabung ke df_daily
     df_daily = df_daily.drop(columns='holiday', errors='ignore')
     df_daily = df_daily.merge(
-        calendar[['Segments/Departure Date', 'holiday']], on='Segments/Departure Date', how='left')
+        calendar[['Segments/Departure Date', 'holiday']],
+        on='Segments/Departure Date',
+        how='left'
+    )
 
     # Buat fitur tambahan
     df_daily['weekday'] = df_daily['Segments/Departure Date'].dt.weekday
@@ -116,22 +122,34 @@ def render_linear_regression(df, start_year, end_year):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42)
 
+    # Standardisasi
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
     # Model regresi
     reg = LinearRegression()
-    reg.fit(X_train, y_train)
+    reg.fit(X_train_scaled, y_train)
 
     # Prediksi dan evaluasi
-    y_pred = reg.predict(X_test)
+    y_pred = reg.predict(X_test_scaled)
     r2 = r2_score(y_test, y_pred)
 
-    # Output
-    st.write("Koefisien:")
-    coef_df = pd.DataFrame({'Fitur': X.columns, 'Koefisien': reg.coef_})
+    # Dataframe koefisien
+    coef_df = pd.DataFrame({
+        'Fitur': X.columns,
+        'Koefisien': reg.coef_
+    })
 
+    # Tandai koefisien besar/kecil
+    coef_df['Kategori'] = coef_df['Koefisien'].apply(
+        lambda x: 'Besar' if abs(x) >= 0.5 else 'Kecil'
+    )
+
+    # Interpretasi koefisien
     def interpretasi_koefisien(row):
         fitur = row['Fitur']
         coef = row['Koefisien']
-
         if fitur == 'holiday':
             return f"Jika hari tersebut libur (1), jumlah penumpang cenderung {'bertambah' if coef > 0 else 'berkurang'} ~{abs(coef):.2f} pax."
         elif fitur == 'weekday':
@@ -150,28 +168,29 @@ def render_linear_regression(df, start_year, end_year):
             return f"Jika rata-rata 3 hari terakhir tinggi, pax hari ini cenderung {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
         elif fitur == 'rolling_mean_7':
             return f"Jika rata-rata 7 hari terakhir tinggi, pax hari ini cenderung {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
-        elif fitur == 'is_start_of_month':
-            return f"Awal bulan cenderung {'meningkatkan' if coef > 0 else 'menurunkan'} pax ~{abs(coef):.2f}."
-        elif fitur == 'is_end_of_month':
-            return f"Akhir bulan cenderung {'meningkatkan' if coef > 0 else 'menurunkan'} pax ~{abs(coef):.2f}."
-        elif fitur == 'week_of_month':
-            return f"Minggu ke-{fitur} dalam bulan berpengaruh ~{abs(coef):.2f} (sign {'positif' if coef > 0 else 'negatif'})."
-        elif fitur == 'diff_1':
-            return f"Jika selisih hari kemarin besar, pengaruhnya {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
-        elif fitur == 'trend_3':
-            return f"Arah tren 3 hari terakhir {'meningkatkan' if coef > 0 else 'menurunkan'} pax ~{abs(coef):.2f}."
-        elif fitur == 'rolling_std_3':
-            return f"Variasi 3 hari terakhir {'menaikkan' if coef > 0 else 'menurunkan'} jumlah pax ~{abs(coef):.2f}."
-        elif fitur == 'rolling_max_7':
-            return f"Jika max 7 hari terakhir tinggi, maka prediksi cenderung {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
-        elif fitur == 'is_payday':
-            return f"Periode gajian (25-1) cenderung {'menaikkan' if coef > 0 else 'menurunkan'} pax ~{abs(coef):.2f}."
         else:
             return f"Pengaruh umum terhadap Total Pax: {'positif' if coef > 0 else 'negatif'} ~{abs(coef):.2f}"
 
-    # Tambahkan interpretasi
     coef_df['Interpretasi'] = coef_df.apply(interpretasi_koefisien, axis=1)
-    st.dataframe(coef_df)
+
+    # Urutkan berdasarkan magnitude
+    coef_df = coef_df.reindex(
+        coef_df['Koefisien'].abs().sort_values(ascending=False).index)
+
+    # Highlight koefisien terbesar & terkecil
+    def highlight_extremes(s):
+        if s.name == 'Koefisien':
+            threshold = 0.5
+            return [
+                'background-color: lightgreen' if v > threshold
+                else 'background-color: lightcoral' if v < -threshold
+                else ''
+                for v in s
+            ]
+        return ['' for _ in s]
+
+    st.subheader('Koefisien dan Interpretasi')
+    st.dataframe(coef_df.style.apply(highlight_extremes, axis=0))
 
     # Buat DataFrame hasil prediksi
     result_df = pd.DataFrame({
@@ -186,25 +205,29 @@ def render_linear_regression(df, start_year, end_year):
     st.line_chart(result_df)
 
     st.write(f"R-squared: {r2:.4f}")
+    st.write(f"---------")
+    st.write("Glossary:")
 
-    X1 = df_daily[['holiday']]
-    y = df_daily['Total Pax']
+    st.markdown("""
+    #### Linear Regression
 
-    model1 = LinearRegression()
-    model1.fit(X1, y)
-    r2_1 = model1.score(X1, y)
+    Metode statistik yang digunakan untuk memodelkan hubungan antara satu variabel target (dalam hal ini jumlah penumpang) dengan satu atau lebih variabel prediktor (fitur).
 
-    fitur = ['holiday', 'weekday', 'is_weekend', 'month', 'day_of_month',
-             'lag_1', 'lag_7', 'rolling_mean_3', 'rolling_mean_7']
-    X2 = df_daily[fitur]
+    #### Fitur
 
-    model2 = LinearRegression()
-    model2.fit(X2, y)
-    r2_2 = model2.score(X2, y)
+    Fitur adalah variabel yang digunakan model untuk memprediksi target.
+    
+    #### Koefisien
 
-    st.write(f"R-squared hanya holiday: {r2_1:.4f}")
-    st.write(f"R-squared dengan fitur tambahan: {r2_2:.4f}")
+    Koefisien menunjukkan seberapa besar pengaruh setiap fitur terhadap variabel target.  
+    - Koefisien positif berarti fitur tersebut meningkatkan nilai target.  
+    - Koefisien negatif berarti fitur tersebut menurunkan nilai target.  
+    - Besarnya koefisien menunjukkan kekuatan pengaruh fitur.
 
-    correlation = df_daily['holiday'].corr(df_daily['Total Pax'])
-    st.write(
-        f"Korelasi Pearson antara 'holiday' dan 'Total Pax': {correlation:.4f}")
+    #### R-squared (Koefisien Determinasi)
+
+    R-squared adalah ukuran seberapa baik model menjelaskan variabilitas data target.  
+    - Nilai R-squared berkisar antara 0 sampai 1.  
+    - Semakin mendekati 1, model semakin baik dalam memprediksi data.  
+
+    """)

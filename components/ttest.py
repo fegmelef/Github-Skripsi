@@ -15,6 +15,56 @@ from scipy.stats import ttest_ind
 
 
 def render_ttest(df, start_year, end_year):
+    def filterYearOnly(prefix: str, df: pd.DataFrame):
+        if f"{prefix}_reset" not in st.session_state:
+            st.session_state.clear()
+            st.session_state[f"{prefix}_reset"] = True
+
+        df_depart = df[df['Segments/Departure Date'].notna()].copy()
+        df_depart['Depart Year'] = df_depart['Segments/Departure Date'].dt.year
+        available_years = sorted(df_depart['Depart Year'].unique())
+
+        all_years_key = f"{prefix}_all_years"
+        selected_years_key = f"{prefix}_selected_years"
+
+        if all_years_key not in st.session_state:
+            st.session_state[all_years_key] = True
+            st.session_state[selected_years_key] = available_years
+
+        def year_check_change():
+            if st.session_state[all_years_key]:
+                st.session_state[selected_years_key] = available_years
+            else:
+                st.session_state[selected_years_key] = []
+
+        def year_multi_change():
+            st.session_state[all_years_key] = (
+                len(st.session_state[selected_years_key]) == len(available_years)
+            )
+
+        # col1, _ = st.columns([1, 3])
+
+        # with col1:
+        st.checkbox("All Years", key=all_years_key, on_change=year_check_change)
+        selected_years = st.multiselect(
+            "Select Years (Departure Date)",
+            options=available_years,
+            key=selected_years_key,
+            on_change=year_multi_change
+        )
+
+        if not st.session_state[all_years_key] and len(selected_years) == 0:
+            st.error("Please select at least one year.")
+
+        if len(selected_years) > 0:
+            filtered_df = df_depart[df_depart['Depart Year'].isin(selected_years)]
+        else:
+            filtered_df = df
+
+        return filtered_df
+
+    df = filterYearOnly("dashboard", df)
+    
     df_holiday = pd.read_excel('files/holidays_ID.xlsx')
     df_holiday['Date'] = pd.to_datetime(df_holiday['Date'])
     df_holiday = df_holiday[['Date', 'Libur']].rename(
@@ -24,8 +74,11 @@ def render_ttest(df, start_year, end_year):
         df['Segments/Departure Date'])
     df['Booking Date'] = pd.to_datetime(df['Booking Date'])
 
-    df_daily = df.groupby(
-        df['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
+    dftest = df.dropna(subset=['Segments/Departure Date'])
+    dftest = dftest.fillna(method = 'ffill')
+
+    df_daily = dftest.groupby(
+        dftest['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
     df_daily['Segments/Departure Date'] = pd.to_datetime(
         df_daily['Segments/Departure Date'])
 
@@ -288,7 +341,7 @@ def render_ttest(df, start_year, end_year):
             }
         )
 
-    st.write('*Notes:*')
+    st.write('*Glossary:*')
     st.markdown("### 📌 T-statistic")
     st.markdown("""
     - **T-statistic** measures how large the difference between two means is relative to the variation in the data.  

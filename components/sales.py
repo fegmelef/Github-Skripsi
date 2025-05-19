@@ -234,7 +234,7 @@ def render_sales_summary(df, start_year, end_year):
             sales_melted = sales_pivot.reset_index().melt(
                 id_vars='Issued Month', var_name='Year', value_name='Orders')
             fig = px.line(sales_melted, x='Issued Month', y='Orders', color='Year',
-                        labels={'Issued Month': 'Month', 'Orders': 'Order Count'})
+                          labels={'Issued Month': 'Month', 'Orders': 'Order Count'})
             fig.update_layout(
                 legend=dict(
                     orientation="h",
@@ -251,7 +251,7 @@ def render_sales_summary(df, start_year, end_year):
             yoy_sales_melted = pivot_orders.filter(regex='YoY Growth Sales').reset_index().melt(
                 id_vars='Issued Month', var_name='Year', value_name='Growth')
             fig = px.line(yoy_sales_melted, x='Issued Month', y='Growth', color='Year',
-                        labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
+                          labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
             fig.update_layout(
                 legend=dict(
                     orientation="h",
@@ -268,7 +268,7 @@ def render_sales_summary(df, start_year, end_year):
             income_melted = income_pivot.reset_index().melt(
                 id_vars='Issued Month', var_name='Year', value_name='Income')
             fig = px.line(income_melted, x='Issued Month', y='Income', color='Year',
-                        labels={'Issued Month': 'Month', 'Income': 'Sales Value'})
+                          labels={'Issued Month': 'Month', 'Income': 'Sales Value'})
             fig.update_layout(
                 legend=dict(
                     orientation="h",
@@ -285,7 +285,7 @@ def render_sales_summary(df, start_year, end_year):
             yoy_income_melted = pivot_income.filter(regex='YoY Growth Income').reset_index().melt(
                 id_vars='Issued Month', var_name='Year', value_name='Growth')
             fig = px.line(yoy_income_melted, x='Issued Month', y='Growth', color='Year',
-                        labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
+                          labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
             fig.update_layout(
                 legend=dict(
                     orientation="h",
@@ -302,7 +302,7 @@ def render_sales_summary(df, start_year, end_year):
             pax_melted = pax_pivot.reset_index().melt(
                 id_vars='Issued Month', var_name='Year', value_name='Pax')
             fig = px.line(pax_melted, x='Issued Month', y='Pax', color='Year',
-                        labels={'Issued Month': 'Month', 'Pax': 'Total Passengers'})
+                          labels={'Issued Month': 'Month', 'Pax': 'Total Passengers'})
             fig.update_layout(
                 legend=dict(
                     orientation="h",
@@ -319,7 +319,7 @@ def render_sales_summary(df, start_year, end_year):
             yoy_pax_melted = pivot_pax.filter(regex='YoY Growth Pax').reset_index().melt(
                 id_vars='Issued Month', var_name='Year', value_name='Growth')
             fig = px.line(yoy_pax_melted, x='Issued Month', y='Growth', color='Year',
-                        labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
+                          labels={'Issued Month': 'Month', 'Growth': 'Growth (%)'})
             fig.update_layout(
                 legend=dict(
                     orientation="h",
@@ -406,3 +406,36 @@ def render_sales_summary(df, start_year, end_year):
             )
             plot_trend(data, 'Issued Date', 'Pax Volume', 'Total Passengers')
     # endregion chart sales
+
+    st.write('*Glossary:*')
+    st.markdown("""
+        - **Pax Volume**  
+        Total number of passengers transported over a specific period.  
+
+        - **Sales Volume**  
+        Total number of Orders during over a specific period.  
+
+        - **Sales Value**  
+        Total monetary value of all sales in a specific timeframe.  
+
+        - **YoY Growth (Pax Volume)**  
+        Year-on-Year percentage change in total passengers.  
+
+        - **YoY Growth (Sales Volume)**  
+        Year-on-Year percentage change in units sold.  
+
+        - **YoY Growth (Sales Value)**  
+        Year-on-Year percentage change in total sales revenue.  
+        """)
+
+
+    st.markdown("""
+        - **Monthly Pax Volume Trend**  
+        Shows how the number of passengers changes month over month.  
+
+        - **Monthly Sales Volume Trend**  
+        Shows how the number of units sold changes month over month.  
+
+        - **Monthly Sales Value Trend**  
+        Shows how the total monetary value of sales changes month over month.  
+    """)

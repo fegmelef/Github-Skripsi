@@ -38,296 +38,260 @@ if 'df' not in st.session_state:
 else:
     df = st.session_state.df
     df_code = st.session_state.df_code
-    
+
+model_option = st.sidebar.selectbox(
+    'Choose Prediction Model:',
+    ('GRU', 'SARIMAX')
+)
+
 df_holiday = pd.read_excel('files/holidays_ID.xlsx')
-    
 df['Issued Date'] = pd.to_datetime(df['Issued Date'])
 df['Segments/Departure Date'] = pd.to_datetime(df['Segments/Departure Date'])
 start_year = df['Issued Date'].min().year
 end_year = df['Issued Date'].max().year
 
 df['Booking Date'] = pd.to_datetime(df['Booking Date'])
-df['Issued Date'] = pd.to_datetime(df['Issued Date'])
-df['Segments/Departure Date'] = pd.to_datetime(df['Segments/Departure Date'])
+df_daily = df.groupby(
+    df['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
+df_daily['Segments/Departure Date'] = pd.to_datetime(
+    df_daily['Segments/Departure Date'])
 
-booking_pax = df.groupby(df['Booking Date'].dt.date)['Total Pax'].sum().reset_index()
-issued_pax = df.groupby(df['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
-departure_pax = df.groupby(df['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
-
-df_holiday = pd.read_excel('files/holidays_ID.xlsx')
 df_holiday['Date'] = pd.to_datetime(df_holiday['Date'])
-df_holiday = df_holiday[['Date', 'Libur']].rename(columns={'Date': 'Segments/Departure Date', 'Libur': 'holiday'})
-
-df['Segments/Departure Date'] = pd.to_datetime(df['Segments/Departure Date'])
-# df['Total Pax'] = np.log1p(df['Total Pax'])
-df_daily = df.groupby(df['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
-df_daily['Segments/Departure Date'] = pd.to_datetime(df_daily['Segments/Departure Date'])
-
+df_holiday = df_holiday[['Date', 'Libur']].rename(
+    columns={'Date': 'Segments/Departure Date', 'Libur': 'holiday'})
 df_daily = df_daily.merge(df_holiday, on='Segments/Departure Date', how='left')
 df_daily['holiday'] = df_daily['holiday'].fillna(0).astype(int)
+
+# today = pd.Timestamp('today').normalize()
+
+# df_daily = df_daily[
+#     (df_daily['Segments/Departure Date'].dt.year >= start_year) &
+#     (df_daily['Segments/Departure Date'].dt.year <= today)
+# ]
 
 df_daily = df_daily[
     (df_daily['Segments/Departure Date'].dt.year >= start_year) &
     (df_daily['Segments/Departure Date'].dt.year <= end_year)
 ]
 
-# st.dataframe(df_daily)
+if model_option == 'GRU':
+    lookback_option = st.sidebar.selectbox(
+        'Choose Time Window (in Days):',
+        (3, 7, 30)
+    )
 
-n = int(len(df_daily) * 0.8)
-train = df_daily.iloc[:n]
-test = df_daily.iloc[n:]
+    st.subheader(
+        f"GRU Forecast - Actual Vs Predicted ({lookback_option} Day{'s)' if lookback_option > 1 else ')'}")
 
-endog_train = train['Total Pax']
-exog_train = train[['holiday']]
+    n = int(len(df_daily) * 0.8)
+    train_data = df_daily['Total Pax'].iloc[:n].values.reshape(-1, 1)
+    test_data = df_daily['Total Pax'].iloc[n:].values.reshape(-1, 1)
 
-endog_test = test['Total Pax']
-exog_test = test[['holiday']]
+    scaler = MinMaxScaler().fit(train_data)
+    train_scaled = scaler.transform(train_data)
+    test_scaled = scaler.transform(test_data)
 
-train_size = int(len(df_daily)*0.8)
-train_data = df_daily['Total Pax'].iloc[:train_size].values.reshape(-1, 1)
-test_data = df_daily['Total Pax'].iloc[train_size:].values.reshape(-1, 1)
+    def create_dataset(X, look_back):
+        Xs, ys = [], []
+        for i in range(len(X) - look_back):
+            Xs.append(X[i:i+look_back])
+            ys.append(X[i+look_back])
+        return np.array(Xs), np.array(ys)
 
-scaler = MinMaxScaler().fit(train_data)
-train_scaled = scaler.transform(train_data)
-test_scaled = scaler.transform(test_data)
+    LOOK_BACK = lookback_option
+    X_train, y_train = create_dataset(train_scaled, LOOK_BACK)
+    X_test, y_test = create_dataset(test_scaled, LOOK_BACK)
 
-def create_dataset(X, look_back=1):
-    Xs, ys = [], []
-    for i in range(len(X) - look_back):
-        v = X[i:i+look_back]
-        Xs.append(v)
-        ys.append(X[i+look_back])
-    return np.array(Xs), np.array(ys)
+    def create_gru(units):
+        model = Sequential()
+        model.add(GRU(units=units, return_sequences=True,
+                  input_shape=(X_train.shape[1], X_train.shape[2])))
+        model.add(Dropout(0.2))
+        model.add(GRU(units=units))
+        model.add(Dropout(0.2))
+        model.add(Dense(units=1))
+        model.compile(optimizer='adam', loss='mse')
+        return model
 
-LOOK_BACK = 1
-X_train, y_train = create_dataset(train_scaled, LOOK_BACK)
-X_test, y_test = create_dataset(test_scaled, LOOK_BACK)
+    model_name = f'gruPredictDepart_{LOOK_BACK}.keras'
 
-print('X_train.shape:', X_train.shape)
-print('y_train.shape:', y_train.shape)
-print('X_test.shape:', X_test.shape)
+    if os.path.exists(model_name):
+        model_gru = load_model(model_name)
+        # model_gru.fit(X_train, y_train, epochs=250,
+        #               validation_split=0.2, batch_size=16, shuffle=False)
+        # model_gru.save(model_name)
+    else:
+        model_gru = create_gru(64)
+        model_gru.fit(X_train, y_train, epochs=250,
+                      validation_split=0.2, batch_size=16, shuffle=False)
+        model_gru.save(model_name)
 
-def create_gru(units):
-    model = Sequential()
-    model.add(GRU(units=units, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
-    model.add(Dropout(0.2))
-    model.add(GRU(units=units))
-    model.add(Dropout(0.2))
-    model.add(Dense(units=1))
-    model.compile(optimizer='adam', loss='mse')
-    return model
+    y_test_inv = scaler.inverse_transform(y_test)
+    prediction_gru = scaler.inverse_transform(model_gru.predict(X_test))
 
-MODEL_PATH = 'gruPredictDepart.keras'
+    st.line_chart(pd.DataFrame(
+        {'Actual': y_test_inv.flatten(), 'Prediction': prediction_gru.flatten()}))
 
-if os.path.exists(MODEL_PATH):
-    model_gru = load_model(MODEL_PATH)
-    # model_gru.fit(X_train, y_train, epochs=1500, validation_split=0.2, batch_size=16, shuffle=False)
-    # model_gru.save('gruPredictDepart.keras')
-    
-else:
-    model_gru = create_gru(64)
-    model_gru.fit(X_train, y_train, epochs=250, validation_split=0.2, batch_size=16, shuffle=False)
-    model_gru.save('gruPredictDepart.keras')
-
-y_test = scaler.inverse_transform(y_test)
-y_train = scaler.inverse_transform(y_train)
-
-def prediction(model):
-    prediction = model.predict(X_test)
-    prediction = scaler.inverse_transform(prediction)
-    return prediction
-
-prediction_gru = prediction(model_gru)
-
-def plot_future(prediction, model_name, y_test):
-    prediction = prediction.flatten()
-    y_test = y_test.flatten()[-len(prediction):]
-
-    data = pd.DataFrame({
-        'Test Data': y_test,
-        'Prediction': prediction
-    })
-
-    st.line_chart(data)
-
-plot_future(prediction_gru, 'GRU', y_test)
-
-def evaluate_prediction(predictions, actual, model_name):
-    errors = predictions - actual
-    mse = np.square(errors).mean()
-    rmse = np.sqrt(mse)
+    errors = prediction_gru - y_test_inv
     mae = np.abs(errors).mean()
-    mape = mean_absolute_percentage_error(actual, predictions)
+    rmse = np.sqrt(np.square(errors).mean())
+    mape = mean_absolute_percentage_error(y_test_inv, prediction_gru)
 
-    print(model_name + ':')
-    print('Mean Absolute Error: {:.4f}'.format(mae))
-    print('Root Mean Square Error: {:.4f}'.format(rmse))
-    print('Mean Absolute Percentage Error: {:.2f}%'.format(mape * 100))
-    print('')
+    def forecast_next_days(model, last_sequence, steps, scaler):
+        forecast = []
+        current_input = last_sequence.copy()
+        for _ in range(steps):
+            pred = model.predict(current_input.reshape(1, LOOK_BACK, 1))
+            forecast.append(pred[0, 0])
+            current_input = np.append(current_input[1:], pred, axis=0)
+        forecast = np.array(forecast).reshape(-1, 1)
+        return scaler.inverse_transform(forecast)
 
-evaluate_prediction(prediction_gru, y_test, 'GRU')
+    last_sequence = scaler.transform(
+        df_daily['Total Pax'].values.reshape(-1, 1))[-LOOK_BACK:]
+    # Forecast dengan langkah sama seperti LOOK_BACK
+    future_pred = forecast_next_days(
+        model_gru, last_sequence, steps=LOOK_BACK, scaler=scaler)
 
-def forecast_next_days(model, last_sequence, steps, scaler):
-    forecast = []
-    current_input = last_sequence.copy()
+    # Generate tanggal untuk forecast dengan jumlah sama seperti LOOK_BACK
+    future_dates = pd.date_range(
+        start=df_daily['Segments/Departure Date'].max(), periods=LOOK_BACK + 1, freq='D')[1:]
 
-    for _ in range(steps):
-        pred = model.predict(current_input.reshape(1, LOOK_BACK, 1))
-        forecast.append(pred[0, 0])
-        current_input = np.append(current_input[1:], pred, axis=0)
+    st.subheader(
+        f"GRU Forecast - Next {lookback_option} Day{'s' if lookback_option > 1 else ''}")
 
-    forecast = np.array(forecast).reshape(-1, 1)
-    forecast_inv = scaler.inverse_transform(forecast)
-    return forecast_inv
+    st.line_chart(pd.DataFrame(
+        {f'Forecasted Pax ({LOOK_BACK} Days Time Span)': future_pred.flatten()}, index=future_dates))
 
-full_scaled = scaler.transform(df_daily['Total Pax'].values.reshape(-1, 1))
-last_sequence = full_scaled[-LOOK_BACK:]
+    r2 = r2_score(y_test_inv, prediction_gru)
 
-future_pred = forecast_next_days(model_gru, last_sequence, steps=30, scaler=scaler)
+    st.markdown(f"""
+    ### GRU Evaluation (Time Window {LOOK_BACK} days)
 
-last_date = df_daily.index[-1] if isinstance(df_daily.index, pd.DatetimeIndex) else pd.to_datetime(df_daily['Segments/Departure Date'].iloc[-1])
-future_dates = pd.date_range(start=last_date, periods=31, freq='D')[1:]
+    - **MAE:** {mae:.2f}  
+    - **RMSE:** {rmse:.2f}  
+    - **MAPE:** {mape * 100:.2f}%  
+    - **R² (R-squared):** {r2:.4f}  
+    """)
 
-future_df = pd.DataFrame({
-    'Date': future_dates,
-    'Forecasted Total Pax': future_pred.flatten()
-})
+    st.markdown("""
+    ---
+    ### Glossary of Metrics
+    
+    - **GRU (Gated Recurrent Unit):** A special kind of neural network model that learns patterns over time. It’s good at understanding sequences like daily data and is used for tasks like forecasting.
 
-st.line_chart(future_df.set_index('Date'))
+    - **Time Window:** The number of previous time steps (this case: days) used as input features to predict the next value in the series. For example, a lookback of 7 means the model uses the past 7 days to forecast the next day.
 
-class sarimax:
-    def seasonality_test(data, column, period):
-        decomposition_result = None
+    - **MAE (Mean Absolute Error):** The average of the absolute differences between predicted and actual values; Lower values indicate better accuracy.
 
-        try:
-            decomposition = seasonal_decompose(data[column], model='multiplicative', period=period)
-            seasonal_component = decomposition.seasonal
-            decomposition_result = "Seasonal"
-        except Exception:
-            decomposition_result = "Decomposition failed"
+    - **RMSE (Root Mean Squared Error):** The square root of the average squared differences between predicted and actual values; Lower values indicate better accuracy.
 
-        try:
-            ljung_box_result = acorr_ljungbox(data[column], lags=[period], return_df=True)
-            p_value = ljung_box_result['lb_pvalue'].values[0]
-            lb_result = "Seasonal" if p_value < 0.05 else "Not Seasonal"
-        except Exception:
-            lb_result = "Ljung-Box failed"
+    - **MAPE (Mean Absolute Percentage Error):** The average absolute percentage error between predicted and actual values; Higher values indicate better accuracy.
 
-        if decomposition_result == "Seasonal" or lb_result == "Seasonal":
-            return "Seasonal"
-        elif decomposition_result == "Decomposition failed" and lb_result == "Ljung-Box failed":
-            return "Both Tests Failed"
-        else:
-            return "Not Seasonal"
-        
-    # Test seasonality
-    bool_seasonal = seasonality_test(df_daily, column='Total Pax', period=1)
-    st.write(f"Seasonality test result: {bool_seasonal}")
+    - **R² (R-squared):** The proportion of variance in the data explained by the model. Maximum value is 1 (perfect fit); Negative values mean the model performs worse than simply predicting the mean.
+    """)
 
-    # Grid Search for SARIMAX Parameters
+
+if model_option == 'SARIMAX':
+    def sarimax_grid_search(endog_train, exog_train,
+                            p_values, d_values, q_values,
+                            P_values, D_values, Q_values, s_values,
+                            scoring='mse'):
+        best_score = np.inf
+        best_cfg = None
+        best_model_fit = None
+
+        seasonal_params = list(itertools.product(P_values, D_values, Q_values, s_values))
+        params = list(itertools.product(p_values, d_values, q_values))
+
+        for order in params:
+            for seasonal_order in seasonal_params:
+                try:
+                    model = SARIMAX(endog_train,
+                                    order=order,
+                                    seasonal_order=seasonal_order,
+                                    exog=exog_train,
+                                    enforce_stationarity=False,
+                                    enforce_invertibility=False)
+                    model_fit = model.fit(disp=False)
+                    pred = model_fit.predict(start=0, end=len(endog_train)-1, exog=exog_train)
+                    if scoring == 'mse':
+                        score = mean_squared_error(endog_train, pred)
+                    elif scoring == 'aic':
+                        score = model_fit.aic
+                    else:
+                        raise ValueError("Unsupported scoring method")
+
+                    if score < best_score:
+                        best_score = score
+                        best_cfg = (order, seasonal_order)
+                        best_model_fit = model_fit
+                except Exception:
+                    continue
+
+        return best_cfg, best_model_fit, best_score
+
+    st.title("SARIMAX Grid Search Forecasting")
+
+    @st.cache_data
+    def load_data():
+        dates = pd.date_range(start='2020-01-01', periods=1095)
+        np.random.seed(42)
+        data = np.random.poisson(100, size=1095)
+        holiday = np.random.binomial(1, 0.1, size=1095)
+        df = pd.DataFrame({'Total Pax': data, 'holiday': holiday}, index=dates)
+        return df
+
+    df_daily = load_data()
+    st.write("Sample data:", df_daily.head())
+
+    # Hardcoded split ratio
+    train_ratio = 0.8
+    n_train = int(len(df_daily) * train_ratio)
+
+    endog_train = df_daily['Total Pax'].iloc[:n_train]
+    endog_test = df_daily['Total Pax'].iloc[n_train:]
+    exog_train = df_daily[['holiday']].iloc[:n_train]
+    exog_test = df_daily[['holiday']].iloc[n_train:]
+
+    # Grid params
     p = d = P = D = range(0, 3)
     q = Q = range(0, 2)
     s = [7]
 
-    param_grid = list(itertools.product(p, d, q))
-    seasonal_grid = list(itertools.product(P, D, Q, s)) if bool_seasonal == "Seasonal" else None
+    st.write("Running SARIMAX grid search...")
 
-    best_mse = float("inf")
-    best_mae = float("inf")
-    best_r2 = float("inf")
-    best_order = None
-    best_seasonal_order = None
-    best_model = None
+    best_cfg, best_model, best_score = sarimax_grid_search(
+        endog_train, exog_train,
+        p, d, q,
+        P, D, Q, s,
+        scoring='mse'
+    )
 
-    # try:
-    #     model_fit = joblib.load('sarimax_model.pkl')
-    #     st.write("Loaded pretrained model.")
-        
-    #     # Perform prediction with the loaded model
-    #     predictions = model_fit.predict(start=0, end=len(endog_test) - 1, exog=exog_test)
+    st.write(f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
 
-    #     # Calculate the error metrics (MAE, MSE, R2)
-    #     mse = mean_squared_error(endog_test, predictions)
-    #     mae = mean_absolute_error(endog_test, predictions)
-    #     r2 = r2_score(endog_test, predictions)
+    params_df = pd.DataFrame({
+        'order_p': [best_cfg[0][0]],
+        'order_d': [best_cfg[0][1]],
+        'order_q': [best_cfg[0][2]],
+        'seasonal_order_P': [best_cfg[1][0]],
+        'seasonal_order_D': [best_cfg[1][1]],
+        'seasonal_order_Q': [best_cfg[1][2]],
+        'seasonal_order_s': [best_cfg[1][3]],
+        'MSE': [best_score]
+    })
+    csv = params_df.to_csv(index=False)
+    st.download_button("Download Best SARIMAX Params CSV", csv, "best_sarimax_params.csv", "text/csv")
 
-    #     # Display the error metrics
-    #     st.write(f"MAE: {mae}")
-    #     st.write(f"MSE: {mse}")
-    #     st.write(f"R2: {r2}")
-        
-    try:
-        # Coba untuk membaca file CSV yang sudah ada
-        params_df = pd.read_csv('best_sarimax_params.csv')
+    predictions = best_model.predict(start=n_train, end=len(df_daily)-1, exog=exog_test)
 
-        order = (params_df['order_p'][0], params_df['order_d'][0], params_df['order_q'][0])
-        seasonal_order = (
-            params_df['seasonal_order_P'][0],
-            params_df['seasonal_order_D'][0],
-            params_df['seasonal_order_Q'][0],
-            params_df['seasonal_order_s'][0]
-        )
+    df_plot = pd.DataFrame({'Actual': endog_test, 'Predicted': predictions})
+    st.line_chart(df_plot)
 
-        model = SARIMAX(endog_train, order=order, seasonal_order=seasonal_order, exog=exog_train)
-        model_fit = model.fit(disp=False)
+    mae = mean_absolute_error(endog_test, predictions)
+    mse = mean_squared_error(endog_test, predictions)
+    r2 = r2_score(endog_test, predictions)
 
-        st.write(f"Loaded SARIMAX parameters from CSV")
-        st.write(f"Order: {order}")
-        st.write(f"Seasonal Order: {seasonal_order}")
-
-    except FileNotFoundError:
-        st.write("No parameter CSV found, training from scratch.")
-
-        for param in param_grid:
-            for param_seasonal in seasonal_grid:
-                try:
-                    model = SARIMAX(endog_train, order=param, seasonal_order=param_seasonal, exog=exog_train)
-                    model_fit = model.fit(disp=False)
-
-                    predictions = model_fit.predict(start=0, end=len(endog_train) - 1)
-                    mse = mean_squared_error(endog_train, predictions)
-                    mae = mean_absolute_error(endog_train, predictions)
-                    r2 = r2_score(endog_train, predictions)
-
-                    if mse < best_mse:
-                        best_mse = mse
-                        best_mae = mae
-                        best_r2 = r2
-                        best_order = param
-                        best_seasonal_order = param_seasonal
-                        best_model = model_fit
-
-                except Exception:
-                    continue
-
-        best_model_info = pd.DataFrame([{
-            'order_p': best_order[0],
-            'order_d': best_order[1],
-            'order_q': best_order[2],
-            'seasonal_order_P': best_seasonal_order[0],
-            'seasonal_order_D': best_seasonal_order[1],
-            'seasonal_order_Q': best_seasonal_order[2],
-            'seasonal_order_s': best_seasonal_order[3],
-            'MSE': best_mse,
-            'MAE': best_mae,
-            'R2': best_r2
-        }])
-
-        best_model_info.to_csv('best_sarimax_params.csv', index=False)
-        st.write("Best model parameters saved to CSV.")
-        st.dataframe(best_model_info)
-
-        # Auto-download CSV
-        csv_buffer = io.StringIO()
-        best_model_info.to_csv(csv_buffer, index=False)
-        
-        # Here we simulate an automatic download by writing the CSV data directly
-        st.download_button(
-            label="Download SARIMAX Parameters CSV",
-            data=csv_buffer.getvalue(),
-            file_name='best_sarimax_params.csv',
-            mime='text/csv'
-        )
-
-    # Perform prediction with the best model
-    predictions = model_fit.predict(start=0, end=len(endog_test) - 1, exog=exog_test)
+    st.write(f"MAE: {mae:.2f}")
+    st.write(f"MSE: {mse:.2f}")
+    st.write(f"R2 Score: {r2:.2f}")

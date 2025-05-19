@@ -24,6 +24,7 @@ def render_passenger_summary(df, start_year, end_year):
         st.button('Refresh')
 
     filtered_df = filter_year_month_depart("passenger", df)
+    # filtered_df = filtered_df.ffill()
 
     option_customer = st.radio(
         "Filter:",
@@ -52,7 +53,7 @@ def render_passenger_summary(df, start_year, end_year):
 
     elif option_customer == 'Customer Order History':
         selected_customer = st.selectbox(
-            "Pilih Customer:",
+            "Choose Customer:",
             top_corporate['Customer/Display Name']
         )
 
@@ -74,38 +75,55 @@ def render_passenger_summary(df, start_year, end_year):
         st.dataframe(customer_history)
 
     # endregion top customer
-    
-    
+
     # region customer over time
     elif option_customer == 'Customer Over Time':
-        filterOverTime = filtered_df.ffill()
-        customer_order = (
-            filterOverTime.groupby('Customer/Display Name')['Total Pax']
+        filterOverTime = filtered_df.copy()
+        customer_order_df = (
+            filterOverTime
+            .assign(**{'Customer/Display Name': filterOverTime['Customer/Display Name'].str.upper()})
+            .groupby('Customer/Display Name')['Total Pax']
             .sum()
             .sort_values(ascending=False)
-            .index
-            .tolist()
+            .reset_index()
         )
 
-        selected_name = st.selectbox("Pilih Customer", customer_order)
+        customer_options = [
+            (f"{row['Customer/Display Name']} ({int(row['Total Pax']):,} Pax)",
+             row['Customer/Display Name'])
+            for _, row in customer_order_df.iterrows()
+        ]
 
-        filterOverTime['Segments/Departure Date'] = pd.to_datetime(filterOverTime['Segments/Departure Date'])
+        selected_customer = st.selectbox(
+            "Choose Customer",
+            options=customer_options,
+            format_func=lambda x: x[0]
+        )[1]
 
-        df_selected = filterOverTime[filterOverTime['Customer/Display Name'] == selected_name]
+        # selected_name = st.selectbox("Choose Customer", selected_customer)
 
-        df_selected['YearMonth'] = df_selected['Segments/Departure Date'].dt.to_period('M').astype(str)
+        filterOverTime['Segments/Departure Date'] = pd.to_datetime(
+            filterOverTime['Segments/Departure Date'])
 
-        monthly_pax = df_selected.groupby('YearMonth')['Total Pax'].sum().reset_index()
+        df_selected = filterOverTime[filterOverTime['Customer/Display Name'].str.upper()
+                                     == selected_customer]
+
+        df_selected['YearMonth'] = df_selected['Segments/Departure Date'].dt.to_period(
+            'M').astype(str)
+
+        monthly_pax = df_selected.groupby(
+            'YearMonth')['Total Pax'].sum().reset_index()
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=monthly_pax['YearMonth'], y=monthly_pax['Total Pax'], mode='lines+markers'))
+        fig.add_trace(go.Scatter(
+            x=monthly_pax['YearMonth'], y=monthly_pax['Total Pax'], mode='lines+markers'))
 
-        fig.update_layout(title=f"Total Pax Over Time - {selected_name}",
-                        xaxis_title='Month',
-                        yaxis_title='Total Pax',
-                        xaxis_tickangle=-45)
+        fig.update_layout(title=f"Total Pax Over Time - {selected_customer}",
+                          xaxis_title='Month',
+                          yaxis_title='Total Pax',
+                          xaxis_tickangle=-45)
 
-        st.plotly_chart(fig)    
+        st.plotly_chart(fig)
     # endregion customer over time
 
     # region age (adult child, infant)
@@ -126,6 +144,18 @@ def render_passenger_summary(df, start_year, end_year):
                 return 'Generation Z (1995–2012)'
             elif 2013 <= birth_year:
                 return 'Generation Alpha (>= 2013)'
+            else:
+                return 'Unknown'
+            
+        def get_age(ageCount):
+            if ageCount <= 20:
+                return 'Age 0-20'
+            elif 21 <= ageCount <= 35:
+                return 'Age 21-35'
+            elif 36 <= ageCount <= 50:
+                return 'Age 36-50'
+            elif 51 <= ageCount:
+                return 'Age 50+'
             else:
                 return 'Unknown'
 
@@ -159,47 +189,105 @@ def render_passenger_summary(df, start_year, end_year):
         df_all['Birth Year'] = df_all['Passenger/Birth Date'].dt.year
         df_all['Age'] = (df_all['Segments/Departure Date'] -
                          df_all['Passenger/Birth Date']).dt.days // 365
+        
         df_all['Generation'] = df_all['Birth Year'].apply(get_generation)
+        df_all['AgeCategory'] = df_all['Age'].apply(get_age)
 
         # Get counts for pie chart
         gen_all = df_all['Generation'].value_counts()
+        age_all = df_all['AgeCategory'].value_counts()
+        
+        if 'last_option' not in st.session_state:
+            st.session_state.last_option = None
+
+        # option_customerAge = st.selectbox("Select Option", ['Pie Chart', 'Other'])
+
+        if option_customerAge != st.session_state.last_option:
+            for key in ['selected_years', 'selected_chart']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.session_state.last_option = option_customerAge
 
         if option_customerAge == 'Pie Chart':
-            available_years = sorted(df_bday['Segments/Departure Date'].dt.year.unique())
-            available_years.insert(0, '-')  # Tambahkan opsi '-' di awal
+            available_years = sorted(
+                df_bday['Segments/Departure Date'].dt.year.unique())
 
-            selected_year = st.selectbox(
-                "Select Year to show yearly chart", available_years, index=0)
-
-            if selected_year != '-':
-                selected_year = int(selected_year)
-                df_bday = df_bday[df_bday['Segments/Departure Date'].dt.year == selected_year]
-
-                df_bday['Birth Year'] = df_bday['Passenger/Birth Date'].dt.year
-                df_bday['Age'] = (df_bday['Segments/Departure Date'] - df_bday['Passenger/Birth Date']).dt.days // 365
-                df_bday['Generation'] = df_bday['Birth Year'].apply(get_generation)
-
-                col1, col2 = st.columns([3, 7])
-
-                with col1:
-                    labels = ['Adult', 'Child', 'Infant']
-                    sizes = [df_bday['Adult'].sum(), df_bday['Child'].sum(), df_bday['Infant'].sum()]
-                    fig = go.Figure(data=[go.Pie(labels=labels, values=sizes, hole=0.3,
-                                                textinfo='percent+label', marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99']))])
-                    fig.update_layout(title=f"Age Distribution ({selected_year})", width=400, height=500)
-                    st.plotly_chart(fig)
-
-                with col2:
-                    generation_counts = df_bday['Generation'].value_counts().sort_index()
-                    fig = go.Figure(data=[go.Pie(labels=generation_counts.index, values=generation_counts.values, hole=0.3,
-                                                textinfo='percent+label', marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99', '#ffcc99', '#c2c2f0', '#ffb3e6', '#c2f0c2']))])
-                    fig.update_layout(title=f"Generation Distribution ({selected_year})", width=400, height=500)
-                    st.plotly_chart(fig)
-
-
-            col1, col2 = st.columns([3, 7])
+            col1, col2 = st.columns(2)
 
             with col1:
+                selected_years = st.multiselect(
+                    "Select Year(s) to show yearly chart",
+                    available_years,
+                    default=[available_years[-1]],
+                    key='selected_years'
+                )
+
+            with col2:
+                selected_chart = st.selectbox(
+                    "Select chart to display",
+                    ['Adult/Child/Infant Distribution', 'Generation Distribution', 'Age Distribution'],
+                    key='selected_chart'
+                )
+
+            def chunks(lst, n):
+                for i in range(0, len(lst), n):
+                    yield lst[i:i + n]
+
+            chunked_years = list(chunks(selected_years, 3)
+                                 )  # max 3 tahun per baris
+
+            for year_group in chunked_years:
+                cols = st.columns(len(year_group))
+
+                for i, year in enumerate(year_group):
+                    df_filtered = df_bday[df_bday['Segments/Departure Date'].dt.year == year].copy()
+
+                    df_filtered['Birth Year'] = df_filtered['Passenger/Birth Date'].dt.year
+                    df_filtered['Age'] = (df_filtered['Segments/Departure Date'] - df_filtered['Passenger/Birth Date']).dt.days // 365
+                    df_filtered['Generation'] = df_filtered['Birth Year'].apply(get_generation)
+                    df_filtered['AgeCategory'] = df_filtered['Age'].apply(get_age)
+
+                    if selected_chart == 'Adult/Child/Infant Distribution':
+                        labels = ['Adult', 'Child', 'Infant']
+                        sizes = [df_filtered['Adult'].sum(), df_filtered['Child'].sum(), df_filtered['Infant'].sum()]
+                        fig = go.Figure(data=[go.Pie(
+                            labels=labels,
+                            values=sizes,
+                            hole=0.3,
+                            textinfo='percent+label',
+                            marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99'])
+                        )])
+                        fig.update_layout(title=f"Adult/Child/Infant Distribution ({year})", width=350, height=400)
+                        fig.update_traces(showlegend=False)
+
+                    elif selected_chart == 'Generation Distribution':  # Generation Distribution
+                        generation_counts = df_filtered['Generation'].value_counts().sort_index()
+                        fig = go.Figure(data=[go.Pie(
+                            labels=generation_counts.index,
+                            values=generation_counts.values,
+                            hole=0.3,
+                            textinfo='label+value',
+                            marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99', '#ffcc99', '#c2c2f0', '#ffb3e6', '#c2f0c2'])
+                        )])
+                        fig.update_layout(title=f"Generation Distribution ({year})", width=350, height=400)
+                        fig.update_traces(showlegend=False)
+                        
+                    elif selected_chart == 'Age Distribution':
+                        age_counts = df_filtered['AgeCategory'].value_counts().sort_index()
+                        fig = go.Figure(data=[go.Pie(
+                            labels=age_counts.index,
+                            values=age_counts.values,
+                            hole=0.3,
+                            textinfo='label+value',
+                            marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99', '#ffcc99'])
+                        )])
+                        fig.update_layout(title=f"Age Distribution ({year})", width=350, height=400)
+                        fig.update_traces(showlegend=False)
+
+                    with cols[i]:
+                        st.plotly_chart(fig)
+
+            if selected_chart == 'Adult/Child/Infant Distribution':
                 labels = ['Adult', 'Child', 'Infant']
                 sizes = [filtered_df['Adult'].sum(), filtered_df['Child'].sum(),
                          filtered_df['Infant'].sum()]
@@ -208,18 +296,29 @@ def render_passenger_summary(df, start_year, end_year):
                                              textinfo='percent+label', marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99']))])
 
                 fig.update_layout(
-                    title=f"Age Distribution (All Time)",
+                    title=f"Adult/Child/Infant Distribution (All Time)",
                     width=400, height=500)
 
                 st.plotly_chart(fig)
 
-            with col2:
+            elif selected_chart == 'Generation Distribution':
                 fig = go.Figure(data=[go.Pie(labels=gen_all.index, values=gen_all.values, hole=0.3,
                                              textinfo='percent+label', marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99',
                                                                                            '#ffcc99', '#c2c2f0', '#ffb3e6', '#c2f0c2']))])
 
                 fig.update_layout(
                     title=f"Generation Distribution (All Time)",
+                    width=400, height=500)
+
+                st.plotly_chart(fig)
+                
+            elif selected_chart == 'Age Distribution':
+                fig = go.Figure(data=[go.Pie(labels=age_all.index, values=age_all.values, hole=0.3,
+                                             textinfo='percent+label', marker=dict(colors=['#ff9999', '#66b3ff', '#99ff99',
+                                                                                           '#ffcc99', '#c2c2f0', '#ffb3e6', '#c2f0c2']))])
+
+                fig.update_layout(
+                    title=f"Age Distribution (All Time)",
                     width=400, height=500)
 
                 st.plotly_chart(fig)
@@ -286,3 +385,15 @@ def render_passenger_summary(df, start_year, end_year):
         # endregion line age
 
     # endregion age (adult child, infant)
+
+    st.write('*Glossary:*')
+    st.markdown("""
+    - **Customer**  
+    Shows the list and total count of passengers (Pax) for each customer.
+
+    - **Customer Over Time**  
+    Shows total passengers (Pax) per month for the selected customer.  
+
+    - **Age Category**  
+    Groups customers based on their age range.  
+    """)
