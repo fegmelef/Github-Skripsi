@@ -39,13 +39,15 @@ def render_ttest(df, start_year, end_year):
 
         def year_multi_change():
             st.session_state[all_years_key] = (
-                len(st.session_state[selected_years_key]) == len(available_years)
+                len(st.session_state[selected_years_key]) == len(
+                    available_years)
             )
 
         # col1, _ = st.columns([1, 3])
 
         # with col1:
-        st.checkbox("All Years", key=all_years_key, on_change=year_check_change)
+        st.checkbox("All Years", key=all_years_key,
+                    on_change=year_check_change)
         selected_years = st.multiselect(
             "Select Years (Departure Date)",
             options=available_years,
@@ -57,63 +59,90 @@ def render_ttest(df, start_year, end_year):
             st.error("Please select at least one year.")
 
         if len(selected_years) > 0:
-            filtered_df = df_depart[df_depart['Depart Year'].isin(selected_years)]
+            filtered_df = df_depart[df_depart['Depart Year'].isin(
+                selected_years)]
         else:
             filtered_df = df
 
         return filtered_df
 
-    df = filterYearOnly("dashboard", df)
-    
+    df = filter_year_month_depart("ttest", df)
+
     df_holiday = pd.read_excel('files/holidays_ID.xlsx')
+
     df_holiday['Date'] = pd.to_datetime(df_holiday['Date'])
-    df_holiday = df_holiday[['Date', 'Libur']].rename(
-        columns={'Date': 'Segments/Departure Date', 'Libur': 'holiday'})
+    df_holiday = df_holiday.rename(columns={
+        'Date': 'Segments/Departure Date',
+        'Libur': 'holiday',
+        'Holiday Name': 'holiday_name'
+    })
 
     df['Segments/Departure Date'] = pd.to_datetime(
         df['Segments/Departure Date'])
     df['Booking Date'] = pd.to_datetime(df['Booking Date'])
 
     dftest = df.dropna(subset=['Segments/Departure Date'])
-    dftest = dftest.fillna(method = 'ffill')
+    # dftest = dftest.fillna(method='ffill')
 
     df_daily = dftest.groupby(
         dftest['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
     df_daily['Segments/Departure Date'] = pd.to_datetime(
         df_daily['Segments/Departure Date'])
 
-    # Buat range tanggal penuh
-    full_dates = pd.DataFrame({'Segments/Departure Date': pd.date_range(start=df_daily['Segments/Departure Date'].min(),
-                                                                        end=df_daily['Segments/Departure Date'].max())})
+    full_dates = pd.DataFrame({'Segments/Departure Date': pd.date_range(
+        start=df_daily['Segments/Departure Date'].min(),
+        end=df_daily['Segments/Departure Date'].max()
+    )})
     df_daily = full_dates.merge(
         df_daily, on='Segments/Departure Date', how='left')
     df_daily['Total Pax'] = df_daily['Total Pax'].fillna(0).astype(int)
 
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
+    col1, col2, col3 = st.columns([2, 2, 2])
+    with col2:
         buffer_days = st.number_input(
             "Enter the number of buffer days (0-7)", min_value=0, max_value=7, value=1)
-
-    with col2:
+    with col3:
         buffer_option = st.radio(
             "Buffer Day Type:",
             options=["Before", "After", "Before and After"],
             index=2,
             horizontal=True
         )
+    with col1:
+        holiday_filter = st.selectbox(
+            "Select Holiday Comparison Type:",
+            options=[
+                "All Holidays (including weekend)",
+                "Long Holiday (more than 3 days)",
+                "Weekend only",
+                "Holiday only"
+            ],
+            index=0
+        )
 
-    calendar = pd.DataFrame({'Segments/Departure Date': pd.date_range(start=df_daily['Segments/Departure Date'].min(),
-                                                                      end=df_daily['Segments/Departure Date'].max())})
-    calendar = calendar.merge(
-        df_holiday, on='Segments/Departure Date', how='left')
+    calendar = pd.DataFrame({'Segments/Departure Date': pd.date_range(
+        start=df_daily['Segments/Departure Date'].min(),
+        end=df_daily['Segments/Departure Date'].max()
+    )})
+    calendar = calendar.merge(df_holiday[['Segments/Departure Date', 'holiday', 'holiday_name']],
+                              on='Segments/Departure Date', how='left')
+
     calendar['holiday'] = calendar['holiday'].fillna(0).astype(int)
+    calendar['holiday_name'] = calendar['holiday_name'].fillna('')
 
-    calendar['grp'] = (calendar['holiday'] !=
-                       calendar['holiday'].shift()).cumsum()
+    calendar['is_weekend'] = (calendar['holiday_name']
+                              == 'Weekend').astype(int)
+    calendar['is_holiday'] = ((calendar['holiday_name'] != '') & (
+        calendar['holiday_name'] != 'Weekend')).astype(int)
+    calendar['is_any_holiday'] = (calendar['holiday_name'] != '').astype(
+        int)  # Semua holiday + weekend
+
+    calendar['grp'] = (calendar['is_any_holiday'] !=
+                       calendar['is_any_holiday'].shift()).cumsum()
     calendar['seq'] = calendar.groupby('grp').cumcount()
+
     holiday_groups = calendar.groupby('grp').agg({
-        'holiday': 'sum',
+        'is_any_holiday': 'sum',
         'Segments/Departure Date': ['first', 'last']
     })
     holiday_groups.columns = ['count', 'start', 'end']
@@ -121,56 +150,119 @@ def render_ttest(df, start_year, end_year):
 
     buffer_dates = set()
     for _, row in long_holidays.iterrows():
-        if buffer_option in ["Before", "Before and After"]:
-            for i in range(1, buffer_days + 1):
+        for i in range(1, buffer_days + 1):
+            if buffer_option in ["Before", "Before and After"]:
                 buffer_dates.add(row['start'] - pd.Timedelta(days=i))
-        if buffer_option in ["After", "Before and After"]:
-            for i in range(1, buffer_days + 1):
+            if buffer_option in ["After", "Before and After"]:
                 buffer_dates.add(row['end'] + pd.Timedelta(days=i))
 
-    calendar['holiday'] = calendar['Segments/Departure Date'].isin(
-        calendar[calendar['holiday'] ==
-                 1]['Segments/Departure Date'].tolist() + list(buffer_dates)
-    ).astype(int)
+    calendar['is_buffer'] = calendar['Segments/Departure Date'].isin(
+        buffer_dates).astype(int)
+    calendar['is_holiday_with_buffer'] = (
+        (calendar['is_any_holiday'] == 1) | (calendar['is_buffer'] == 1)).astype(int)
 
-    # Gabungkan kembali dengan df_daily
-    df_daily = df_daily.drop(columns='holiday', errors='ignore')
+    df_daily = df_daily.drop(
+        columns=['is_weekend', 'is_holiday', 'is_holiday_with_buffer'], errors='ignore')
     df_daily = df_daily.merge(
-        calendar[['Segments/Departure Date', 'holiday']], on='Segments/Departure Date', how='left')
+        calendar[['Segments/Departure Date', 'holiday_name',
+                  'is_weekend', 'is_holiday', 'is_holiday_with_buffer']],
+        on='Segments/Departure Date', how='left'
+    )
 
-    # Pisahkan data
-    pax_holiday = df_daily[df_daily['holiday'] == 1]['Total Pax']
-    pax_non_holiday = df_daily[df_daily['holiday'] == 0]['Total Pax']
+    long_holiday_dates = pd.concat([
+        pd.Series(pd.date_range(start=row['start'], end=row['end'])) for _, row in long_holidays.iterrows()
+    ])
+
+    df_daily['is_long_holiday_with_buffer'] = df_daily['Segments/Departure Date'].isin(
+        long_holiday_dates).astype(int)
+    df_daily.loc[df_daily['Segments/Departure Date'].isin(
+        buffer_dates), 'is_long_holiday_with_buffer'] = 1
+
+    df_daily['is_holiday_only_with_buffer'] = (
+        (df_daily['is_holiday'] == 1) & (df_daily['is_weekend'] == 0)).astype(int)
+    df_daily.loc[df_daily['Segments/Departure Date'].isin(
+        buffer_dates), 'is_holiday_only_with_buffer'] = 1
+
+    if holiday_filter == "All Holidays (including weekend)":
+        pax_holiday = df_daily[
+            (df_daily['is_holiday_with_buffer'] == 1) | (
+                df_daily['is_weekend'] == 1)
+        ]['Total Pax']
+        pax_non_holiday = df_daily[
+            (df_daily['is_holiday_with_buffer'] == 0) & (
+                df_daily['is_weekend'] == 0)
+        ]['Total Pax']
+
+    elif holiday_filter == "Long Holiday (more than 3 days)":
+        pax_holiday = df_daily[df_daily['is_long_holiday_with_buffer']
+                               == 1]['Total Pax']
+        pax_non_holiday = df_daily[df_daily['is_long_holiday_with_buffer']
+                                   == 0]['Total Pax']
+
+    elif holiday_filter == "Weekend only":
+        pax_holiday = df_daily[
+            (df_daily['is_weekend'] == 1) & (df_daily['is_holiday'] == 0)
+        ]['Total Pax']
+        pax_non_holiday = df_daily[
+            (df_daily['is_weekend'] == 0) & (df_daily['is_holiday'] == 0)
+        ]['Total Pax']
+
+    elif holiday_filter == "Holiday only":
+        pax_holiday = df_daily[df_daily['is_holiday_only_with_buffer']
+                               == 1]['Total Pax']
+        pax_non_holiday = df_daily[df_daily['is_holiday_only_with_buffer']
+                                   == 0]['Total Pax']
+
+    else:
+        pax_holiday = pd.Series(dtype='float64')
+        pax_non_holiday = pd.Series(dtype='float64')
 
     total_holiday = pax_holiday.sum()
     total_non_holiday = pax_non_holiday.sum()
     mean_holiday = pax_holiday.mean()
     mean_non_holiday = pax_non_holiday.mean()
 
+    label_map = {
+        "All Holidays (including weekend)": ("Holiday & Weekend", "Non-Holiday & Non-Weekend"),
+        "Long Holiday (more than 3 days)": ("Long Holiday", "Non-long Holiday"),
+        "Weekend only": ("Weekend", "Non-Weekend"),
+        "Holiday only": ("Holiday", "Non-Holiday")
+    }
+
+    holiday_label, non_holiday_label = label_map.get(
+        holiday_filter, ("Holiday", "Non-Holiday"))
+
     summary_df = pd.DataFrame({
-        'Kategori': ['Holiday', 'Non-Holiday'],
-        'Jumlah Total Pax': [total_holiday, total_non_holiday],
-        'Rata-rata Per Hari': [mean_holiday, mean_non_holiday]
-    }).set_index('Kategori')
+        'Category': [holiday_label, non_holiday_label],
+        'Total Pax': [total_holiday, total_non_holiday],
+        'Average per Day': [mean_holiday, mean_non_holiday]
+    }).set_index('Category')
 
     col1, col2 = st.columns(2)
-
     with col1:
         st.subheader("Total Number of Pax")
-        st.bar_chart(summary_df[['Jumlah Total Pax']])
-
+        st.bar_chart(summary_df[['Total Pax']])
     with col2:
         st.subheader("Average Pax Per Day")
-        st.bar_chart(summary_df[['Rata-rata Per Hari']])
+        st.bar_chart(summary_df[['Average per Day']])
 
-    # Lakukan uji t
     t_stat, p_value = ttest_ind(pax_holiday, pax_non_holiday, equal_var=False)
 
     col1, col2, col3, col4 = st.columns(4)
 
+    label_map = {
+        "All Holidays (including weekend)": ("Holiday & Weekend", "Non-Holiday & Non-Weekend"),
+        "Long Holiday (more than 3 days)": ("Long Holiday", "Non-long Holiday"),
+        "Weekend only": ("Weekend", "Non-Weekend"),
+        "Holiday only": ("Holiday", "Non-Holiday")
+    }
+
+    holiday_label, non_holiday_label = label_map.get(
+        holiday_filter, ("Holiday", "Non-Holiday"))
+
     with col1:
         card(
-            title=f"Pax Mean (Holiday)",
+            title=f"Pax Mean ({holiday_label})",
             text=f"{mean_holiday:.2f}",
             styles={
                 "card": {
@@ -199,7 +291,7 @@ def render_ttest(df, start_year, end_year):
 
     with col2:
         card(
-            title=f"Pax Mean (Non-Holiday)",
+            title=f"Pax Mean ({non_holiday_label})",
             text=f"{mean_non_holiday:.2f}",
             styles={
                 "card": {

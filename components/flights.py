@@ -155,11 +155,13 @@ def render_flights_summary(df, start_year, end_year, df_code):
             col1, col2 = st.columns([6, 4])
 
             with col1:
-                available_airlines = df_direction['List of Carriers'].dropna().unique()
+                available_airlines = df_direction['List of Carriers'].dropna(
+                ).unique()
                 selected_airlines = st.multiselect(
                     "Select Airlines",
                     options=available_airlines,
-                    default=available_airlines[0] if len(available_airlines) > 0 else None,
+                    default=available_airlines[0] if len(
+                        available_airlines) > 0 else None,
                     key='airlines_over_time'
                 )
 
@@ -171,26 +173,31 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 )
 
             if selected_airlines:
-                df_airline = df_direction[df_direction['List of Carriers'].isin(selected_airlines)]
+                df_airline = df_direction[df_direction['List of Carriers'].isin(
+                    selected_airlines)]
 
                 if metric == 'By Total Pax':
                     value_col = 'Total Pax'
                     grouped = (
-                        df_airline.groupby(['Departure Period', 'List of Carriers'])[value_col]
+                        df_airline.groupby(['Departure Period', 'List of Carriers'])[
+                            value_col]
                         .sum()
                         .reset_index()
                     )
                 elif metric == 'By Revenue':
                     value_col = 'Grand Total'
                     grouped = (
-                        df_airline.groupby(['Departure Period', 'List of Carriers'])[value_col]
+                        df_airline.groupby(['Departure Period', 'List of Carriers'])[
+                            value_col]
                         .sum()
                         .reset_index()
                     )
                 elif metric == 'By Total Order':
-                    df_airline['Order Count'] = df_airline['Issued Date'].notna().astype(int)
+                    df_airline['Order Count'] = df_airline['Issued Date'].notna().astype(
+                        int)
                     grouped = (
-                        df_airline.groupby(['Departure Period', 'List of Carriers'])['Order Count']
+                        df_airline.groupby(['Departure Period', 'List of Carriers'])[
+                            'Order Count']
                         .sum()
                         .reset_index()
                     )
@@ -209,11 +216,13 @@ def render_flights_summary(df, start_year, end_year, df_code):
             col1, col2 = st.columns([6, 4])
 
             with col1:
-                available_providers = df_direction['List of Provider'].dropna().unique()
+                available_providers = df_direction['List of Provider'].dropna(
+                ).unique()
                 selected_providers = st.multiselect(
                     "Select Providers",
                     options=available_providers,
-                    default=available_providers[0] if len(available_providers) > 0 else None,
+                    default=available_providers[0] if len(
+                        available_providers) > 0 else None,
                     key='providers_over_time'
                 )
 
@@ -225,26 +234,31 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 )
 
             if selected_providers:
-                df_provider = df_direction[df_direction['List of Provider'].isin(selected_providers)]
+                df_provider = df_direction[df_direction['List of Provider'].isin(
+                    selected_providers)]
 
                 if metric == 'By Total Pax':
                     value_col = 'Total Pax'
                     grouped = (
-                        df_provider.groupby(['Departure Period', 'List of Provider'])[value_col]
+                        df_provider.groupby(['Departure Period', 'List of Provider'])[
+                            value_col]
                         .sum()
                         .reset_index()
                     )
                 elif metric == 'By Revenue':
                     value_col = 'Grand Total'
                     grouped = (
-                        df_provider.groupby(['Departure Period', 'List of Provider'])[value_col]
+                        df_provider.groupby(['Departure Period', 'List of Provider'])[
+                            value_col]
                         .sum()
                         .reset_index()
                     )
                 elif metric == 'By Total Order':
-                    df_provider['Order Count'] = df_provider['Issued Date'].notna().astype(int)
+                    df_provider['Order Count'] = df_provider['Issued Date'].notna().astype(
+                        int)
                     grouped = (
-                        df_provider.groupby(['Departure Period', 'List of Provider'])['Order Count']
+                        df_provider.groupby(['Departure Period', 'List of Provider'])[
+                            'Order Count']
                         .sum()
                         .reset_index()
                     )
@@ -258,7 +272,6 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     title=f'{value_col} per Provider (Monthly)'
                 )
                 st.plotly_chart(fig_provider)
-
 
     # endregion airlines and provider
 
@@ -393,7 +406,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
             key="option_period",
             horizontal=True
         )
-        
+
         if 'last_option_period' not in st.session_state:
             st.session_state.last_option_period = option_period
 
@@ -487,7 +500,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 st.plotly_chart(fig_pie)
 
         elif option_period == 'Flight Schedules':
-            option_col, filter_col = st.columns([3,7])
+            option_col, filter_col = st.columns([3, 7])
 
             with option_col:
                 option_schedule = st.radio(
@@ -498,7 +511,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 )
 
             with filter_col:
-                available_airlines = df_direction['Segments/Plane/Name'].dropna().unique()
+                available_airlines = df_direction['Segments/Plane/Name'].dropna(
+                ).unique()
                 airline_options = ['All'] + list(available_airlines)
 
                 selected_airlines = st.selectbox(
@@ -530,11 +544,13 @@ def render_flights_summary(df, start_year, end_year, df_code):
 
                 df_arrival = df_direction[
                     df_direction['Segments/Arrival Date'].dt.year.isin(selected_years) &
-                    df_direction['Segments/Arrival Date'].dt.month.isin(selected_months)
+                    df_direction['Segments/Arrival Date'].dt.month.isin(
+                        selected_months)
                 ]
 
                 if selected_airlines != 'All':
-                    df_arrival = df_arrival[df_arrival['Segments/Plane/Name'] == selected_airlines]
+                    df_arrival = df_arrival[df_arrival['Segments/Plane/Name']
+                                            == selected_airlines]
 
                 with col1:
                     df_arrival['Arrival Hour'] = df_arrival['Segments/Arrival Date'].dt.hour
@@ -560,7 +576,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                         height=300,
                         coloraxis_colorbar=dict(
                             title="Total Pax",
-                            tickvals=[hourly_pax['Total Pax'].min(), hourly_pax['Total Pax'].max()],
+                            tickvals=[hourly_pax['Total Pax'].min(
+                            ), hourly_pax['Total Pax'].max()],
                             ticktext=[
                                 f"{hourly_pax['Total Pax'].min():,.0f}", f"{hourly_pax['Total Pax'].max():,.0f}"
                             ],
@@ -570,7 +587,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     st.plotly_chart(fig_heatmap)
 
                 with col2:
-                    df_arrival['Time Category'] = df_arrival['Arrival Hour'].apply(categorize_time)
+                    df_arrival['Time Category'] = df_arrival['Arrival Hour'].apply(
+                        categorize_time)
 
                     time_category_pax = (
                         df_arrival.groupby('Time Category')['Total Pax']
@@ -596,11 +614,13 @@ def render_flights_summary(df, start_year, end_year, df_code):
 
                 df_departure = df_direction[
                     df_direction['Segments/Departure Date'].dt.year.isin(selected_years) &
-                    df_direction['Segments/Departure Date'].dt.month.isin(selected_months)
+                    df_direction['Segments/Departure Date'].dt.month.isin(
+                        selected_months)
                 ]
 
                 if selected_airlines != 'All':
-                    df_departure = df_departure[df_departure['Segments/Plane/Name'] == selected_airlines]
+                    df_departure = df_departure[df_departure['Segments/Plane/Name']
+                                                == selected_airlines]
 
                 with col1:
                     df_departure['Departure Hour'] = df_departure['Segments/Departure Date'].dt.hour
@@ -626,7 +646,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                         height=300,
                         coloraxis_colorbar=dict(
                             title="Total Pax",
-                            tickvals=[hourly_pax['Total Pax'].min(), hourly_pax['Total Pax'].max()],
+                            tickvals=[hourly_pax['Total Pax'].min(
+                            ), hourly_pax['Total Pax'].max()],
                             ticktext=[
                                 f"{hourly_pax['Total Pax'].min():,.0f}", f"{hourly_pax['Total Pax'].max():,.0f}"
                             ],
@@ -636,7 +657,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     st.plotly_chart(fig_heatmap)
 
                 with col2:
-                    df_departure['Time Category'] = df_departure['Departure Hour'].apply(categorize_time)
+                    df_departure['Time Category'] = df_departure['Departure Hour'].apply(
+                        categorize_time)
 
                     time_category_pax = (
                         df_departure.groupby('Time Category')['Total Pax']
@@ -652,10 +674,156 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     )
                     st.plotly_chart(fig_time_category)
 
-
     # endregion periode flight
 
     if option_flights == 'Flight Routes':
+        filtered_df['Segments/Departure Date'] = pd.to_datetime(
+            filtered_df['Segments/Departure Date'], errors='coerce'
+        )
+
+        filtered_df['Direction'] = filtered_df['Direction'].ffill()
+
+        selected_years = filtered_df['Segments/Departure Date'].dt.year.unique()
+        selected_months = filtered_df['Segments/Departure Date'].dt.month.unique()
+
+        df_routetop = filtered_df[
+            filtered_df['Segments/Departure Date'].dt.year.isin(selected_years) &
+            filtered_df['Segments/Departure Date'].dt.month.isin(
+                selected_months)
+        ]
+
+        filtered_df = filtered_df.dropna(subset=['Segments/Origin/Code'])
+
+        oneWay_return_df = filtered_df[
+            (filtered_df['Direction'].str.strip().str.lower() == 'one way') |
+            (filtered_df['Direction'].str.strip().str.lower() == 'return')
+        ]
+
+        # Ekstrak kode bandara
+        oneWay_return_df['Origin_Code'] = oneWay_return_df['Origin/Display Name'].str.extract(
+            r'\(([A-Z]{3})\)')
+        oneWay_return_df['Destination_Code'] = oneWay_return_df['Destination/Display Name'].str.extract(
+            r'\(([A-Z]{3})\)')
+
+        # Jumlahkan Total Pax per rute
+        route_pax = oneWay_return_df.groupby(
+            ['Origin_Code', 'Destination_Code'],
+            as_index=False
+        )['Total Pax'].sum()
+
+        multi_city_df = filtered_df[
+            (filtered_df['Direction'].str.strip().str.lower() == 'multi city') |
+            (filtered_df['Direction'].str.strip().str.lower() == 'other')
+        ]
+
+        date_cols = ["Segments/Departure Date", "Issued Date"]
+        for col in date_cols:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col])
+
+        def calculate_final_routes(df):
+            routes = []
+            current_group = {
+                'pax': None,
+                'origin': None,
+                'last_destination': None,
+                'last_departure': None,
+                'intermediate_routes': []  # Untuk menyimpan rute intermediate
+            }
+
+            for idx, row in df.iterrows():
+                if pd.notna(row.get('Issued Date')) or pd.notna(row.get('Total Pax')):
+                    if current_group['origin'] and current_group['last_destination']:
+                        if current_group['origin'] == current_group['last_destination'] and current_group['intermediate_routes']:
+                            last_valid_route = current_group['intermediate_routes'][-1]
+                            routes.append({
+                                'Total Pax': current_group['pax'],
+                                'Origin': last_valid_route['origin'],
+                                'Destination': last_valid_route['destination']
+                            })
+                        else:
+                            routes.append({
+                                'Total Pax': current_group['pax'],
+                                'Origin': current_group['origin'],
+                                'Destination': current_group['last_destination']
+                            })
+
+                    current_group = {
+                        'pax': row['Total Pax'],
+                        'origin': row['Segments/Origin/Code'],
+                        'last_destination': row['Segments/Destination/Code'],
+                        'last_departure': row['Segments/Departure Date'],
+                        'intermediate_routes': []
+                    }
+                    current_group['intermediate_routes'].append({
+                        'origin': current_group['origin'],
+                        'destination': current_group['last_destination']
+                    })
+                else:
+                    if current_group['last_departure']:
+                        time_diff = (row['Segments/Departure Date'] -
+                                     current_group['last_departure']).days
+                        if time_diff <= 3:
+                            current_group['intermediate_routes'].append({
+                                'origin': current_group['origin'],
+                                'destination': current_group['last_destination']
+                            })
+
+                            current_group['last_destination'] = row['Segments/Destination/Code']
+                            current_group['last_departure'] = row['Segments/Departure Date']
+
+            if current_group['origin'] and current_group['last_destination']:
+                if current_group['origin'] == current_group['last_destination'] and current_group['intermediate_routes']:
+                    last_valid_route = current_group['intermediate_routes'][-1]
+                    routes.append({
+                        'Total Pax': current_group['pax'],
+                        'Origin': last_valid_route['origin'],
+                        'Destination': last_valid_route['destination']
+                    })
+                else:
+                    routes.append({
+                        'Total Pax': current_group['pax'],
+                        'Origin': current_group['origin'],
+                        'Destination': current_group['last_destination']
+                    })
+
+            return pd.DataFrame(routes)
+
+        required_cols = ['Total Pax', 'Segments/Origin/Code',
+                         'Segments/Destination/Code', 'Segments/Departure Date']
+        if all(col in multi_city_df.columns for col in required_cols):
+            final_routes = calculate_final_routes(multi_city_df)
+            if all(col in final_routes.columns for col in ['Total Pax', 'Origin', 'Destination']):
+                grouped_routes = final_routes.groupby(
+                    ['Origin', 'Destination'], as_index=False)['Total Pax'].sum()
+
+                # st.dataframe(grouped_routes)
+
+                route_pax_renamed = route_pax.rename(columns={
+                    'Origin_Code': 'Origin',
+                    'Destination_Code': 'Destination'
+                })
+                combined_routes = pd.concat(
+                    [route_pax_renamed, grouped_routes], ignore_index=True)
+
+                final_combined_routes = combined_routes.groupby(
+                    ['Origin', 'Destination'],
+                    as_index=False
+                )['Total Pax'].sum()
+
+                final_combined_routes = final_combined_routes.sort_values(
+                    'Total Pax', ascending=False)
+
+                # st.dataframe(final_combined_routes)
+
+                total_all_pax = final_combined_routes['Total Pax'].sum()
+                # st.metric("**Total Semua Penumpang**", total_all_pax)
+            else:
+                st.error(
+                    "Kolom 'Total Pax', 'Origin', atau 'Destination' tidak ditemukan di DataFrame.")
+        else:
+            st.error(f"Missing required columns. Needed: {required_cols}")
+
         opt_route = st.radio(
             "Sub-Menu:",
             options=["Top Routes", 'Map'],
@@ -675,6 +843,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 'show_iata_checkbox',
                 'show_routes_checkbox',
                 'selected_layer_radio',
+                'selected_sector_box',
+                'top_n_slider'
             ]:
                 st.session_state.pop(key, None)
             st.session_state.last_opt_route = st.session_state.opt_route
@@ -682,33 +852,53 @@ def render_flights_summary(df, start_year, end_year, df_code):
         col1, col2 = st.columns([3, 7])
 
         if opt_route == 'Top Routes':
-            df_routetop = df[
-                df['Segments/Origin/Code'].notna() &
-                df['Segments/Destination/Code'].notna()
-            ]
+            df_route = final_combined_routes.copy()
+            
+            sectors = df['Sector'].dropna().unique()
+            
+            with col1:
+                selected_sector = st.selectbox(
+                    "Select Sector",
+                    options=sectors,
+                    key='selected_sector_box'
+                )
 
-            df_routetop = df_routetop[
-                (df_routetop['Segments/Origin/Code'].astype(str) != 'False') &
-                (df_routetop['Segments/Destination/Code'].astype(str) != 'False')
-            ]
-
-            # df_routetop['Total Pax'] = df_routetop['Total Pax'].fillna(
-            #     method='ffill')
-
-            df_route = df_routetop.groupby(
-                ['Segments/Origin/Code', 'Segments/Destination/Code']
-            )['Total Pax'].sum().reset_index()
-
-            df_route['Route'] = df_route.apply(
-                lambda row: f"{row['Segments/Origin/Code']} - {row['Segments/Destination/Code']}",
-                axis=1
+            df_route = df_route.merge(
+                df_code[["iata_code", "iso_country"]].rename(columns={
+                    "iata_code": "Origin",
+                    "iso_country": "origin_country"
+                }),
+                on="Origin",
+                how="left"
             )
 
-            df_routetop['Sector'] = df_routetop['Sector'].fillna(
-                method='ffill')
+            # Merge lookup destination country
+            df_route = df_route.merge(
+                df_code[["iata_code", "iso_country"]].rename(columns={
+                    "iata_code": "Destination",
+                    "iso_country": "dest_country"
+                }),
+                on="Destination",
+                how="left"
+            )
 
-            sectors = df_routetop['Sector'].unique()
+            def fill_sector(row):
+                if pd.isna(row["Sector"]) or row["Sector"] == "":
+                    if row["origin_country"] != row["dest_country"]:
+                        return "International"
+                    else:
+                        return "Domestic"
+                else:
+                    return row["Sector"]
 
+            def update_sector(row):
+                if row["origin_country"] != row["dest_country"]:
+                    return "International"
+                else:
+                    return "Domestic"
+
+            df_route["Sector"] = df_route.apply(update_sector, axis=1)
+            
             with col2:
                 top_n = st.slider(
                     "Select the Number of Top Routes",
@@ -717,25 +907,19 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     value=10,
                     key='top_n_slider'
                 )
-
-            with col1:
-                selected_sector = st.selectbox(
-                    "Select Sector",
-                    options=sectors,
-                    key='selected_sector_box'
-                )
-
-            df_filtered_sector = df_routetop[df_routetop['Sector']
-                                             == selected_sector]
-
-            df_route = df_filtered_sector.groupby(
-                ['Segments/Origin/Code', 'Segments/Destination/Code']
-            )['Total Pax'].sum().reset_index()
-
+                
+                            
             df_route['Route'] = df_route.apply(
-                lambda row: f"{row['Segments/Origin/Code']} - {row['Segments/Destination/Code']}",
+                lambda row: f"{row['Origin']} - {row['Destination']}",
                 axis=1
             )
+
+            df_route = df_route[df_route['Sector'] == selected_sector]
+            if selected_sector == "International":
+                df_route = df_route[df_route["dest_country"] != "ID"]
+            elif selected_sector == "Domestic":
+                df_route = df_route[df_route["dest_country"] == "ID"]
+
 
             df_route = df_route.sort_values(
                 'Total Pax', ascending=False).head(top_n)
@@ -744,42 +928,34 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 df_route,
                 x='Total Pax',
                 y='Route',
-                title=f'Top {top_n} {selected_sector} Routes',
+                title=f'Top {top_n} Routes' +
+                (f" in {selected_sector}" if selected_sector else ""),
                 orientation='h'
             )
 
             fig_route.update_layout(
                 yaxis=dict(categoryorder='total ascending')
             )
+
             st.plotly_chart(fig_route)
 
         elif opt_route == 'Map':
-            filtered_df['Segments/Departure Date'] = pd.to_datetime(
-                filtered_df['Segments/Departure Date'], errors='coerce'
-            )
-
-            selected_years = filtered_df['Segments/Departure Date'].dt.year.unique()
-            selected_months = filtered_df['Segments/Departure Date'].dt.month.unique()
-            df_pax = df_direction[
-                df_direction['Segments/Departure Date'].dt.year.isin(selected_years) &
-                df_direction['Segments/Departure Date'].dt.month.isin(
-                    selected_months)
-            ]
-
-            # df_pax["Total Pax"] = pd.to_numeric(
-            #     df["Total Pax"], errors="coerce").fillna(method="ffill")
-
+            df_pax = final_combined_routes.rename(columns={
+                    'Origin': 'Segments/Origin/Code',
+                    'Destination': 'Segments/Destination/Code'
+                })
+            
             df_pax_origin = df_pax.groupby(
                 "Segments/Origin/Code")["Total Pax"].sum().reset_index()
             df_pax_origin.columns = ["iata_code", "Total Pax Sum"]
 
-            df_pax_dest = df.groupby("Segments/Destination/Code")[
+            df_pax_dest = df_pax.groupby("Segments/Destination/Code")[
                 "Total Pax"].sum().reset_index()
             df_pax_dest.columns = ["iata_code", "Total Pax Sum"]
 
             df_asal = df_pax_origin.merge(df_code, on="iata_code", how="left")
             df_tujuan = df_pax_dest.merge(df_code, on="iata_code", how="left")
-
+            
             df_asal[['latitude', 'longitude']
                     ] = df_asal['coordinates'].str.split(',', expand=True)
             df_asal['latitude'] = pd.to_numeric(
@@ -901,7 +1077,7 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 ("Origin", "Destination"),
                 key="selected_layer_radio"
             )
-            
+
             # Simpan nilai sebelumnya
             if 'last_selected_layer' not in st.session_state:
                 st.session_state.last_selected_layer = st.session_state.selected_layer_radio
@@ -929,7 +1105,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 st.session_state.last_show_routes = False
 
             # Checkbox UI
-            show_routes = st.sidebar.checkbox("Show Top Routes", value=False, key=f"show_routes_checkbox_{selected_layer}")
+            show_routes = st.sidebar.checkbox(
+                "Show Top Routes", value=False, key=f"show_routes_checkbox_{selected_layer}")
 
             # Deteksi transisi dari False → True
             show_routes_just_enabled = show_routes and not st.session_state.last_show_routes
@@ -937,7 +1114,6 @@ def render_flights_summary(df, start_year, end_year, df_code):
             # Simpan state sekarang
             st.session_state.last_show_routes = show_routes
 
-            
             selected_layers = []
 
             if selected_layer == "Origin":
@@ -946,7 +1122,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 selected_layers.append(ALL_LAYERS["Destination"])
 
             if show_routes:
-                available_iata_codes = sorted(set(df_asal_filtered["iata_code"]) | set(df_tujuan_filtered["iata_code"]))
+                available_iata_codes = sorted(
+                    set(df_asal_filtered["iata_code"]) | set(df_tujuan_filtered["iata_code"]))
 
                 if show_routes_just_enabled:
                     st.session_state.route_type_select = "From"
@@ -958,7 +1135,8 @@ def render_flights_summary(df, start_year, end_year, df_code):
                 col1, col2, col3, col4 = st.columns(4)
 
                 with col1:
-                    route_type = st.selectbox("Route Type", ["From", "To"], key="route_type_select")
+                    route_type = st.selectbox(
+                        "Route Type", ["From", "To"], key="route_type_select")
 
                 current_route_type = st.session_state.route_type_select
 
@@ -969,13 +1147,16 @@ def render_flights_summary(df, start_year, end_year, df_code):
                     st.session_state.last_route_type = current_route_type
 
                 with col2:
-                    route_scope = st.selectbox("Route Scope", ["All", "Domestic", "International"], key="route_scope_select")
+                    route_scope = st.selectbox(
+                        "Route Scope", ["All", "Domestic", "International"], key="route_scope_select")
 
                 with col3:
-                    selected_iata = st.selectbox(f"Select IATA Code ({route_type})", available_iata_codes, key="selected_iata_code")
+                    selected_iata = st.selectbox(
+                        f"Select IATA Code ({route_type})", available_iata_codes, key="selected_iata_code")
 
                 with col4:
-                    top_n = st.slider("Top N Destinations", min_value=5, max_value=10, key="top_n_dest_slider")
+                    top_n = st.slider(
+                        "Top N Destinations", min_value=5, max_value=10, key="top_n_dest_slider")
 
                 # Merge lookup origin country
                 df_pax = df_pax.merge(

@@ -233,19 +233,18 @@ if model_option == 'SARIMAX':
 
     st.title("SARIMAX Grid Search Forecasting")
 
-    @st.cache_data
-    def load_data():
-        dates = pd.date_range(start='2020-01-01', periods=1095)
-        np.random.seed(42)
-        data = np.random.poisson(100, size=1095)
-        holiday = np.random.binomial(1, 0.1, size=1095)
-        df = pd.DataFrame({'Total Pax': data, 'holiday': holiday}, index=dates)
-        return df
+    df_holiday = pd.read_excel('files/holidays_ID.xlsx')
+    df_holiday['Segments/Departure Date'] = pd.to_datetime(df_holiday['Date'])
+    df_holiday['holiday'] = df_holiday['Holiday Name'].notna().astype(int)
+    df_holiday = df_holiday[['Segments/Departure Date', 'holiday']]
+    
+    df['Segments/Departure Date'] = pd.to_datetime(df['Segments/Departure Date']).dt.normalize()
 
-    df_daily = load_data()
-    st.write("Sample data:", df_daily.head())
+    df_daily = df.groupby('Segments/Departure Date')['Total Pax'].sum().reset_index()
 
-    # Hardcoded split ratio
+    df_daily = df_daily.merge(df_holiday, on='Segments/Departure Date', how='left')
+    df_daily['holiday'] = df_daily['holiday'].fillna(0).astype(int)
+
     train_ratio = 0.8
     n_train = int(len(df_daily) * train_ratio)
 
@@ -254,9 +253,29 @@ if model_option == 'SARIMAX':
     exog_train = df_daily[['holiday']].iloc[:n_train]
     exog_test = df_daily[['holiday']].iloc[n_train:]
 
+    # Plot ACF dan PACF
+    from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+
+    st.subheader("ACF and PACF Plots")
+
+    fig_acf, ax_acf = plt.subplots(figsize=(10, 4))
+    plot_acf(endog_train, ax=ax_acf, lags=30)
+    st.pyplot(fig_acf)
+
+    fig_pacf, ax_pacf = plt.subplots(figsize=(10, 4))
+    plot_pacf(endog_train, ax=ax_pacf, lags=30, method='ywm')
+    st.pyplot(fig_pacf)
+
+    from statsmodels.tsa.stattools import adfuller
+    result = adfuller(endog_train)
+    st.write('ADF Statistic:', result[0])
+    st.write('p-value:', result[1])
+    
+
     # Grid params
-    p = d = P = D = range(0, 3)
-    q = Q = range(0, 2)
+    p = P = range(0, 5)
+    d = D = range(0, 1)
+    q = Q = range(0, 4)
     s = [7]
 
     st.write("Running SARIMAX grid search...")

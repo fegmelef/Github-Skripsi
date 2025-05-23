@@ -42,7 +42,7 @@ def render_linear_regression(df, start_year, end_year):
     df['Booking Date'] = pd.to_datetime(df['Booking Date'])
 
     dftest = df.dropna(subset=['Segments/Departure Date'])
-    dftest = dftest.fillna(method='ffill')
+    # dftest = dftest.fillna(method='ffill')
 
     df_daily = dftest.groupby(
         dftest['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
