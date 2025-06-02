@@ -10,3 +10,5 @@ matplotlib
 plotly
 scikit-learn
 statsmodels
+joblib
+tensorflow
