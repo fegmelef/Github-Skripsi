@@ -1,5 +1,5 @@
+streamlit==1.30.0
 streamlit-card
-streamlit
 pandas
 numpy
 openpyxl
@@ -12,4 +12,4 @@ scikit-learn
 statsmodels
 joblib
 holidays
-tensorflow-gpu>=1.6.0
+tensorflow==2.15.0

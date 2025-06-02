@@ -3,3 +3,12 @@ python = ">=3.6,<=3.7.16"
 streamlit = ">=1.2.0"
 tensorflow = ">=1.15.4,<2.0"
 scikit_learn = ">=0.20.0"
+
+[tool.poetry.dev-dependencies]
+black = "*"  # Pretty formatting of Python code
+pynvim = "*" # Allows nvim users to use black formatting
+
+[[tool.poetry.source]]
+name = 'default'
+url = 'https://pypi.python.org/simple'
+secondary = false
