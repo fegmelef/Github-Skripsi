@@ -12,4 +12,4 @@ scikit-learn
 statsmodels
 joblib
 holidays
-tensorflow
+tensorflow-gpu>=1.6.0
