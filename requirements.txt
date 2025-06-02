@@ -8,3 +8,7 @@ altair
 scipy
 matplotlib
 plotly
+scikit-learn
+statsmodels
+joblib
+tensorflow
