@@ -12,5 +12,4 @@ scikit-learn
 statsmodels
 joblib
 holidays
-python>=3.10,<3.11
-tensorflow>=2.15.0,<2.16.0
+tensorflow>=2.16.1
