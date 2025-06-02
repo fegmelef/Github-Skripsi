@@ -23,7 +23,7 @@ import joblib
 # from tensorflow import keras
 # from tensorflow.keras import Sequential, layers, callbacks
 # from tensorflow.keras.layers import Dense, LSTM, Dropout, GRU, Bidirectional
-# from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler
 # from tensorflow.keras.models import load_model
 import os
 import io
