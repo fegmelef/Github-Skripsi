@@ -20,11 +20,11 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.stats.diagnostic import acorr_ljungbox
 import joblib
 # import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import Sequential, layers, callbacks
-from tensorflow.keras.layers import Dense, LSTM, Dropout, GRU, Bidirectional
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import load_model
+# from tensorflow import keras
+# from tensorflow.keras import Sequential, layers, callbacks
+# from tensorflow.keras.layers import Dense, LSTM, Dropout, GRU, Bidirectional
+# from sklearn.preprocessing import MinMaxScaler
+# from tensorflow.keras.models import load_model
 import os
 import io
 
