@@ -2,3 +2,4 @@ streamlit-card
 streamlit
 pandas
 numpy
+openpyxl
