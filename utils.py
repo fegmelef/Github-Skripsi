@@ -37,6 +37,8 @@ def load_data():
         'Segments/Carrier Type/Code',
     ]
     df = df.drop(columns=[col for col in drop_columns if col in df.columns])
+    df["Destination/Display Name"] = df["Destination/Display Name"].astype(str)
+
     return df
 
 
