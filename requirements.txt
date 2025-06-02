@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+pydeck
+altair
+scipy
+matplotlib
+plotly
+scikit-learn
+statsmodels
+streamlit-card
+joblib
+tensorflow

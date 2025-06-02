@@ -233,55 +233,137 @@ if model_option == 'SARIMAX':
 
     st.title("SARIMAX Grid Search Forecasting")
 
+    # Load data hari libur
     df_holiday = pd.read_excel('files/holidays_ID.xlsx')
     df_holiday['Segments/Departure Date'] = pd.to_datetime(df_holiday['Date'])
     df_holiday['holiday'] = df_holiday['Holiday Name'].notna().astype(int)
     df_holiday = df_holiday[['Segments/Departure Date', 'holiday']]
-    
+
+    # Persiapan data harian
     df['Segments/Departure Date'] = pd.to_datetime(df['Segments/Departure Date']).dt.normalize()
-
     df_daily = df.groupby('Segments/Departure Date')['Total Pax'].sum().reset_index()
-
     df_daily = df_daily.merge(df_holiday, on='Segments/Departure Date', how='left')
     df_daily['holiday'] = df_daily['holiday'].fillna(0).astype(int)
+    df_daily = df_daily[df_daily['Total Pax'] != 0]
 
-    train_ratio = 0.8
-    n_train = int(len(df_daily) * train_ratio)
+    # Filter tahun 2022–2024
+    df_daily = df_daily[
+        (df_daily["Segments/Departure Date"].dt.year >= 2022) &
+        (df_daily["Segments/Departure Date"].dt.year <= 2024)
+    ]
 
-    endog_train = df_daily['Total Pax'].iloc[:n_train]
-    endog_test = df_daily['Total Pax'].iloc[n_train:]
-    exog_train = df_daily[['holiday']].iloc[:n_train]
-    exog_test = df_daily[['holiday']].iloc[n_train:]
+    # Index ulang untuk resampling
+    df_daily.set_index('Segments/Departure Date', inplace=True)
 
+    # Data mingguan (resample per minggu, minggu berakhir Minggu)
+    df_7daily = df_daily.resample('W-SUN').agg({
+        'Total Pax': 'sum',
+        'holiday': 'sum'
+    }).reset_index()
+    df_7daily['Segments/Departure Date'] = df_7daily['Segments/Departure Date'] - pd.to_timedelta(6, unit='d')
+    df_7daily = df_7daily[df_7daily['Total Pax'] != 0]
+
+    # Filter 2022–2024
+    df_7daily = df_7daily[
+        (df_7daily["Segments/Departure Date"].dt.year >= 2022) &
+        (df_7daily["Segments/Departure Date"].dt.year <= 2024)
+    ]
+
+    # Data bulanan (resample dari awal bulan)
+    df_30daily = df_daily.resample('MS').agg({
+        'Total Pax': 'sum',
+        'holiday': 'sum'
+    }).reset_index()
+    df_30daily = df_30daily[df_30daily['Total Pax'] != 0]
+
+    # Filter 2022–2024
+    df_30daily = df_30daily[
+        (df_30daily["Segments/Departure Date"].dt.year >= 2022) &
+        (df_30daily["Segments/Departure Date"].dt.year <= 2024)
+    ]
+
+    # st.write(df_daily)
+    # st.write(df_7daily)
+    # st.write(df_30daily)
+    
+    train_ratio = 1
+
+    # Harian
+    n_train_daily = int(len(df_daily) * train_ratio)
+    endog_train_daily = df_daily['Total Pax'].iloc[:n_train_daily]
+    endog_test_daily = df_daily['Total Pax'].iloc[n_train_daily:]
+    exog_train_daily = df_daily[['holiday']].iloc[:n_train_daily]
+    exog_test_daily = df_daily[['holiday']].iloc[n_train_daily:]
+    
+    # 7 Harian
+    n_train_7d = int(len(df_7daily) * train_ratio)
+    endog_train_7d = df_7daily['Total Pax'].iloc[:n_train_7d]
+    endog_test_7d = df_7daily['Total Pax'].iloc[n_train_7d:]
+    exog_train_7d = df_7daily[['holiday']].iloc[:n_train_7d]
+    exog_test_7d = df_7daily[['holiday']].iloc[n_train_7d:]
+
+    # 30 Harian
+    n_train_30d = int(len(df_30daily) * train_ratio)
+    endog_train_30d = df_30daily['Total Pax'].iloc[:n_train_30d]
+    endog_test_30d = df_30daily['Total Pax'].iloc[n_train_30d:]
+    exog_train_30d = df_30daily[['holiday']].iloc[:n_train_30d]
+    exog_test_30d = df_30daily[['holiday']].iloc[n_train_30d:]
+    
     # Plot ACF dan PACF
     from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-
-    st.subheader("ACF and PACF Plots")
-
-    fig_acf, ax_acf = plt.subplots(figsize=(10, 4))
-    plot_acf(endog_train, ax=ax_acf, lags=30)
-    st.pyplot(fig_acf)
-
-    fig_pacf, ax_pacf = plt.subplots(figsize=(10, 4))
-    plot_pacf(endog_train, ax=ax_pacf, lags=30, method='ywm')
-    st.pyplot(fig_pacf)
-
     from statsmodels.tsa.stattools import adfuller
-    result = adfuller(endog_train)
-    st.write('ADF Statistic:', result[0])
-    st.write('p-value:', result[1])
-    
 
-    # Grid params
-    p = P = range(0, 5)
+    # st.subheader("ACF and PACF Plots")
+
+    # # daily
+    # fig_acf, ax_acf = plt.subplots(figsize=(10, 4))
+    # plot_acf(endog_train_daily, ax=ax_acf, lags=30)
+    # st.pyplot(fig_acf)
+
+    # fig_pacf, ax_pacf = plt.subplots(figsize=(10, 4))
+    # plot_pacf(endog_train_daily, ax=ax_pacf, lags=30, method='ywm')
+    # st.pyplot(fig_pacf)
+
+    # result = adfuller(endog_train_daily)    
+    # st.write('ADF Statistic:', result[0])
+    # st.write('p-value:', result[1])
+    
+    # # week
+    # fig_acf, ax_acf = plt.subplots(figsize=(10, 4))
+    # plot_acf(endog_train_7d, ax=ax_acf, lags=12)
+    # st.pyplot(fig_acf)
+
+    # fig_pacf, ax_pacf = plt.subplots(figsize=(10, 4))
+    # plot_pacf(endog_train_7d, ax=ax_pacf, lags=12, method='ywm')
+    # st.pyplot(fig_pacf)
+
+    # result = adfuller(endog_train_7d)    
+    # st.write('ADF Statistic:', result[0])
+    # st.write('p-value:', result[1])
+    
+    # # month
+    # fig_acf, ax_acf = plt.subplots(figsize=(10, 4))
+    # plot_acf(endog_train_30d, ax=ax_acf, lags=12)
+    # st.pyplot(fig_acf)
+
+    # fig_pacf, ax_pacf = plt.subplots(figsize=(10, 4))
+    # plot_pacf(endog_train_30d, ax=ax_pacf, lags=12, method='ywm')
+    # st.pyplot(fig_pacf)
+
+    # from statsmodels.tsa.stattools import adfuller
+    # result = adfuller(endog_train_30d)    
+    # st.write('ADF Statistic:', result[0])
+    # st.write('p-value:', result[1])
+    
+    # Daily
+    # # Grid params
+    p = P = range(0, 4)
     d = D = range(0, 1)
     q = Q = range(0, 4)
-    s = [7]
-
-    st.write("Running SARIMAX grid search...")
+    s = [3, 7, 14]
 
     best_cfg, best_model, best_score = sarimax_grid_search(
-        endog_train, exog_train,
+        endog_train_daily, exog_train_daily,
         p, d, q,
         P, D, Q, s,
         scoring='mse'
@@ -299,18 +381,102 @@ if model_option == 'SARIMAX':
         'seasonal_order_s': [best_cfg[1][3]],
         'MSE': [best_score]
     })
-    csv = params_df.to_csv(index=False)
-    st.download_button("Download Best SARIMAX Params CSV", csv, "best_sarimax_params.csv", "text/csv")
 
-    predictions = best_model.predict(start=n_train, end=len(df_daily)-1, exog=exog_test)
+    predictions = best_model.predict(start=0, end=len(df_daily)-1, exog=exog_train_daily)
 
-    df_plot = pd.DataFrame({'Actual': endog_test, 'Predicted': predictions})
+    df_plot = pd.DataFrame({'Actual': endog_train_daily, 'Predicted': predictions})
     st.line_chart(df_plot)
 
-    mae = mean_absolute_error(endog_test, predictions)
-    mse = mean_squared_error(endog_test, predictions)
-    r2 = r2_score(endog_test, predictions)
+    mae = mean_absolute_error(endog_train_daily, predictions)
+    mse = mean_squared_error(endog_train_daily, predictions)
+    r2 = r2_score(endog_train_daily, predictions)
+    mape = (abs((endog_train_daily - predictions) / endog_train_daily)).mean() * 100
 
     st.write(f"MAE: {mae:.2f}")
     st.write(f"MSE: {mse:.2f}")
     st.write(f"R2 Score: {r2:.2f}")
+    st.write(f"MAPE: {mape:.2f}%")
+    
+    # # Weekly
+    # # Grid params
+    # p = P = range(0, 2)
+    # d = D = range(0, 1)
+    # q = Q = range(0, 2)
+    # s = [4, 13, 26, 52]
+
+    # best_cfg, best_model, best_score = sarimax_grid_search(
+    #     endog_train_7d, exog_train_7d,
+    #     p, d, q,
+    #     P, D, Q, s,
+    #     scoring='mse'
+    # )
+
+    # st.write(f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
+
+    # params_df = pd.DataFrame({
+    #     'order_p': [best_cfg[0][0]],
+    #     'order_d': [best_cfg[0][1]],
+    #     'order_q': [best_cfg[0][2]],
+    #     'seasonal_order_P': [best_cfg[1][0]],
+    #     'seasonal_order_D': [best_cfg[1][1]],
+    #     'seasonal_order_Q': [best_cfg[1][2]],
+    #     'seasonal_order_s': [best_cfg[1][3]],
+    #     'MSE': [best_score]
+    # })
+
+    # predictions = best_model.predict(start=0, end=len(df_7daily)-1, exog=exog_train_7d)
+
+    # df_plot = pd.DataFrame({'Actual': endog_train_7d, 'Predicted': predictions})
+    # st.line_chart(df_plot)
+
+    # mae = mean_absolute_error(endog_train_7d, predictions)
+    # mse = mean_squared_error(endog_train_7d, predictions)
+    # r2 = r2_score(endog_train_7d, predictions)
+    # mape = (abs((endog_train_7d - predictions) / endog_train_7d)).mean() * 100
+
+    # st.write(f"MAE: {mae:.2f}")
+    # st.write(f"MSE: {mse:.2f}")
+    # st.write(f"R2 Score: {r2:.2f}")
+    # st.write(f"MAPE: {mape:.2f}%")
+
+    # # MONTHLY
+    # # # Grid params
+    # p = P = range(0, 4)
+    # d = D = range(0, 1)
+    # q = Q = range(0, 2)
+    # s = [1, 3, 6, 12]
+
+    # best_cfg, best_model, best_score = sarimax_grid_search(
+    #     endog_train_30d, exog_train_30d,
+    #     p, d, q,
+    #     P, D, Q, s,
+    #     scoring='mse'
+    # )
+
+    # st.write(f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
+
+    # params_df = pd.DataFrame({
+    #     'order_p': [best_cfg[0][0]],
+    #     'order_d': [best_cfg[0][1]],
+    #     'order_q': [best_cfg[0][2]],
+    #     'seasonal_order_P': [best_cfg[1][0]],
+    #     'seasonal_order_D': [best_cfg[1][1]],
+    #     'seasonal_order_Q': [best_cfg[1][2]],
+    #     'seasonal_order_s': [best_cfg[1][3]],
+    #     'MSE': [best_score]
+    # })
+
+    # predictions = best_model.predict(start=0, end=len(df_30daily)-1, exog=exog_train_30d)
+
+    # df_plot = pd.DataFrame({'Actual': endog_train_30d, 'Predicted': predictions})
+    # st.line_chart(df_plot)
+
+    # mae = mean_absolute_error(endog_train_30d, predictions)
+    # mse = mean_squared_error(endog_train_30d, predictions)
+    # r2 = r2_score(endog_train_30d, predictions)
+    # mape = (abs((endog_train_30d - predictions) / endog_train_30d)).mean() * 100
+
+    # st.write(f"MAE: {mae:.2f}")
+    # st.write(f"MSE: {mse:.2f}")
+    # st.write(f"R2 Score: {r2:.2f}")
+    # st.write(f"MAPE: {mape:.2f}%")

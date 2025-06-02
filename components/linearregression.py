@@ -100,7 +100,7 @@ def render_linear_regression(df, start_year, end_year):
         how='left'
     )
 
-    # Buat fitur tambahan
+    # Buat Feature tambahan
     df_daily['weekday'] = df_daily['Segments/Departure Date'].dt.weekday
     df_daily['is_weekend'] = df_daily['weekday'].isin([5, 6]).astype(int)
     df_daily['month'] = df_daily['Segments/Departure Date'].dt.month
@@ -111,11 +111,11 @@ def render_linear_regression(df, start_year, end_year):
     df_daily['rolling_mean_7'] = df_daily['Total Pax'].rolling(7).mean()
     df_daily.dropna(inplace=True)
 
-    # Fitur yang digunakan
-    fitur = ['holiday', 'weekday', 'is_weekend', 'month', 'day_of_month',
+    # Feature yang digunakan
+    Feature = ['holiday', 'weekday', 'is_weekend', 'month', 'day_of_month',
              'lag_1', 'lag_7', 'rolling_mean_3', 'rolling_mean_7']
 
-    X = df_daily[fitur]
+    X = df_daily[Feature]
     y = df_daily['Total Pax']
 
     # Split data
@@ -135,51 +135,51 @@ def render_linear_regression(df, start_year, end_year):
     y_pred = reg.predict(X_test_scaled)
     r2 = r2_score(y_test, y_pred)
 
-    # Dataframe koefisien
+    # Dataframe Coefficient
     coef_df = pd.DataFrame({
-        'Fitur': X.columns,
-        'Koefisien': reg.coef_
+        'Feature': X.columns,
+        'Coefficient': reg.coef_
     })
 
-    # Tandai koefisien besar/kecil
-    coef_df['Kategori'] = coef_df['Koefisien'].apply(
-        lambda x: 'Besar' if abs(x) >= 0.5 else 'Kecil'
+    # Tandai Coefficient besar/kecil
+    coef_df['Category'] = coef_df['Coefficient'].apply(
+        lambda x: 'Significant' if abs(x) >= 0.5 else 'Not Significant'
     )
 
-    # Interpretasi koefisien
-    def interpretasi_koefisien(row):
-        fitur = row['Fitur']
-        coef = row['Koefisien']
-        if fitur == 'holiday':
-            return f"Jika hari tersebut libur (1), jumlah penumpang cenderung {'bertambah' if coef > 0 else 'berkurang'} ~{abs(coef):.2f} pax."
-        elif fitur == 'weekday':
-            return f"Tiap kenaikan weekday (misal Senin ke Selasa), pax {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
-        elif fitur == 'is_weekend':
-            return f"Jika akhir pekan, pax {'bertambah' if coef > 0 else 'berkurang'} ~{abs(coef):.2f} dibanding hari biasa."
-        elif fitur == 'month':
-            return f"Tiap kenaikan bulan, pax {'naik' if coef > 0 else 'turun'} sedikit (~{abs(coef):.3f})."
-        elif fitur == 'day_of_month':
-            return f"Semakin akhir bulan, pax {'naik' if coef > 0 else 'turun'} ~{abs(coef):.3f}."
-        elif fitur == 'lag_1':
-            return f"Jika kemarin tinggi, hari ini cenderung {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
-        elif fitur == 'lag_7':
-            return f"Jika minggu lalu tinggi, hari ini sedikit {'naik' if coef > 0 else 'turun'} (~{abs(coef):.3f})."
-        elif fitur == 'rolling_mean_3':
-            return f"Jika rata-rata 3 hari terakhir tinggi, pax hari ini cenderung {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
-        elif fitur == 'rolling_mean_7':
-            return f"Jika rata-rata 7 hari terakhir tinggi, pax hari ini cenderung {'naik' if coef > 0 else 'turun'} ~{abs(coef):.2f}."
+    # Interpretation Coefficient
+    def interpret_coefficient(row):
+        feature = row['Feature']
+        coef = row['Coefficient']
+        if feature == 'holiday':
+            return f"If the day is a holiday (1), the number of passengers tends to {'increase' if coef > 0 else 'decrease'} by ~{abs(coef):.2f} pax."
+        elif feature == 'weekday':
+            return f"For each increase in weekday (e.g., Monday to Tuesday), passengers {'increase' if coef > 0 else 'decrease'} by ~{abs(coef):.2f}."
+        elif feature == 'is_weekend':
+            return f"If it is the weekend, passengers {'increase' if coef > 0 else 'decrease'} by ~{abs(coef):.2f} compared to weekdays."
+        elif feature == 'month':
+            return f"For each increase in month, passengers {'increase' if coef > 0 else 'decrease'} slightly (~{abs(coef):.3f})."
+        elif feature == 'day_of_month':
+            return f"Later in the month, passengers tend to {'increase' if coef > 0 else 'decrease'} by ~{abs(coef):.3f}."
+        elif feature == 'lag_1':
+            return f"If yesterday's number was high, today's tends to {'increase' if coef > 0 else 'decrease'} by ~{abs(coef):.2f}."
+        elif feature == 'lag_7':
+            return f"If last week's value was high, today tends to {'increase' if coef > 0 else 'decrease'} slightly (~{abs(coef):.3f})."
+        elif feature == 'rolling_mean_3':
+            return f"If the 3-day average was high, today's passengers tend to {'increase' if coef > 0 else 'decrease'} by ~{abs(coef):.2f}."
+        elif feature == 'rolling_mean_7':
+            return f"If the 7-day average was high, today's passengers tend to {'increase' if coef > 0 else 'decrease'} by ~{abs(coef):.2f}."
         else:
-            return f"Pengaruh umum terhadap Total Pax: {'positif' if coef > 0 else 'negatif'} ~{abs(coef):.2f}"
+            return f"General effect on Total Pax: {'positive' if coef > 0 else 'negative'} ~{abs(coef):.2f}"
 
-    coef_df['Interpretasi'] = coef_df.apply(interpretasi_koefisien, axis=1)
+    coef_df['Interpretation'] = coef_df.apply(interpret_coefficient, axis=1)
 
     # Urutkan berdasarkan magnitude
     coef_df = coef_df.reindex(
-        coef_df['Koefisien'].abs().sort_values(ascending=False).index)
+        coef_df['Coefficient'].abs().sort_values(ascending=False).index)
 
-    # Highlight koefisien terbesar & terkecil
+    # Highlight Coefficient terbesar & terkecil
     def highlight_extremes(s):
-        if s.name == 'Koefisien':
+        if s.name == 'Coefficient':
             threshold = 0.5
             return [
                 'background-color: lightgreen' if v > threshold
@@ -189,7 +189,7 @@ def render_linear_regression(df, start_year, end_year):
             ]
         return ['' for _ in s]
 
-    st.subheader('Koefisien dan Interpretasi')
+    st.subheader('Coefficient dan Interpretation')
     st.dataframe(coef_df.style.apply(highlight_extremes, axis=0))
 
     # Buat DataFrame hasil prediksi
@@ -211,23 +211,22 @@ def render_linear_regression(df, start_year, end_year):
     st.markdown("""
     #### Linear Regression
 
-    Metode statistik yang digunakan untuk memodelkan hubungan antara satu variabel target (dalam hal ini jumlah penumpang) dengan satu atau lebih variabel prediktor (fitur).
+    A statistical method used to model the relationship between a target variable (in this case, the number of passengers) and one or more predictor variables (features).
 
-    #### Fitur
+    #### Features
 
-    Fitur adalah variabel yang digunakan model untuk memprediksi target.
-    
-    #### Koefisien
+    Features are the variables used by the model to predict the target.
 
-    Koefisien menunjukkan seberapa besar pengaruh setiap fitur terhadap variabel target.  
-    - Koefisien positif berarti fitur tersebut meningkatkan nilai target.  
-    - Koefisien negatif berarti fitur tersebut menurunkan nilai target.  
-    - Besarnya koefisien menunjukkan kekuatan pengaruh fitur.
+    #### Coefficients
 
-    #### R-squared (Koefisien Determinasi)
+    Coefficients indicate how much influence each feature has on the target variable.  
+    - A positive coefficient means the feature increases the target value.  
+    - A negative coefficient means the feature decreases the target value.  
+    - The magnitude of the coefficient indicates the strength of the feature's influence.
 
-    R-squared adalah ukuran seberapa baik model menjelaskan variabilitas data target.  
-    - Nilai R-squared berkisar antara 0 sampai 1.  
-    - Semakin mendekati 1, model semakin baik dalam memprediksi data.  
+    #### R-squared (Coefficient of Determination)
 
+    R-squared is a measure of how well the model explains the variability of the target data.  
+    - R-squared values range from 0 to 1.  
+    - The closer the value is to 1, the better the model predicts the data.  
     """)

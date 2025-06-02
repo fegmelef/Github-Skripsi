@@ -83,21 +83,8 @@ def render_ttest(df, start_year, end_year):
 
     dftest = df.dropna(subset=['Segments/Departure Date'])
     # dftest = dftest.fillna(method='ffill')
-
-    df_daily = dftest.groupby(
-        dftest['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
-    df_daily['Segments/Departure Date'] = pd.to_datetime(
-        df_daily['Segments/Departure Date'])
-
-    full_dates = pd.DataFrame({'Segments/Departure Date': pd.date_range(
-        start=df_daily['Segments/Departure Date'].min(),
-        end=df_daily['Segments/Departure Date'].max()
-    )})
-    df_daily = full_dates.merge(
-        df_daily, on='Segments/Departure Date', how='left')
-    df_daily['Total Pax'] = df_daily['Total Pax'].fillna(0).astype(int)
-
-    col1, col2, col3 = st.columns([2, 2, 2])
+    
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
     with col2:
         buffer_days = st.number_input(
             "Enter the number of buffer days (0-7)", min_value=0, max_value=7, value=1)
@@ -119,6 +106,28 @@ def render_ttest(df, start_year, end_year):
             ],
             index=0
         )
+    with col4:
+        customer_type = st.selectbox('Customer Type', ['All', 'Individual', 'Corporate'])
+
+        if customer_type == 'Individual':
+            filtered_df = dftest[dftest['Customer/Display Name'].str.upper() == 'RODEX DARMO FPO']
+        elif customer_type == 'Corporate':
+            filtered_df = dftest[dftest['Customer/Display Name'].str.upper() != 'RODEX DARMO FPO']
+        else:
+            filtered_df = dftest.copy()
+
+        df_daily = filtered_df.groupby(
+            filtered_df['Segments/Departure Date'].dt.date)['Total Pax'].sum().reset_index()
+        df_daily['Segments/Departure Date'] = pd.to_datetime(df_daily['Segments/Departure Date'])
+
+    full_dates = pd.DataFrame({'Segments/Departure Date': pd.date_range(
+        start=df_daily['Segments/Departure Date'].min(),
+        end=df_daily['Segments/Departure Date'].max()
+    )})
+    df_daily = full_dates.merge(
+        df_daily, on='Segments/Departure Date', how='left')
+    df_daily['Total Pax'] = df_daily['Total Pax'].fillna(0).astype(int)
+    df_daily = df_daily[df_daily['Total Pax'] > 0]        
 
     calendar = pd.DataFrame({'Segments/Departure Date': pd.date_range(
         start=df_daily['Segments/Departure Date'].min(),
