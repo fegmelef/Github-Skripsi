@@ -11,4 +11,4 @@ plotly
 scikit-learn
 statsmodels
 joblib
-tensorflow
+tensorflow==2.16.1
