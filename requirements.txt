@@ -3,3 +3,8 @@ streamlit
 pandas
 numpy
 openpyxl
+pydeck
+altair
+scipy
+matplotlib
+plotly
