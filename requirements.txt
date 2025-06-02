@@ -1,3 +1,4 @@
+python_version == 3.12
 streamlit
 pandas
 numpy
@@ -11,5 +12,3 @@ statsmodels
 streamlit-card
 joblib
 tensorflow
-openpyxl
-python_version == 3.12
