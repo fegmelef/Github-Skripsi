@@ -9,3 +9,4 @@ scipy
 matplotlib
 plotly
 scikit-learn
+statsmodels
