@@ -11,3 +11,5 @@ statsmodels
 streamlit-card
 joblib
 tensorflow
+openpyxl
+python_version == 3.12
