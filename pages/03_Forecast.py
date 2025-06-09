@@ -122,7 +122,7 @@ if model_option == 'GRU':
         # model_gru.save(model_name)
     else:
         model_gru = create_gru(64)
-        model_gru.fit(X_train, y_train, epochs=250,
+        model_gru.fit(X_train, y_train, epochs=500,
                       validation_split=0.2, batch_size=16, shuffle=False)
         model_gru.save(model_name)
 
@@ -201,7 +201,8 @@ if model_option == 'SARIMAX':
         best_cfg = None
         best_model_fit = None
 
-        seasonal_params = list(itertools.product(P_values, D_values, Q_values, s_values))
+        seasonal_params = list(itertools.product(
+            P_values, D_values, Q_values, s_values))
         params = list(itertools.product(p_values, d_values, q_values))
 
         for order in params:
@@ -214,7 +215,8 @@ if model_option == 'SARIMAX':
                                     enforce_stationarity=False,
                                     enforce_invertibility=False)
                     model_fit = model.fit(disp=False)
-                    pred = model_fit.predict(start=0, end=len(endog_train)-1, exog=exog_train)
+                    pred = model_fit.predict(start=0, end=len(
+                        endog_train)-1, exog=exog_train)
                     if scoring == 'mse':
                         score = mean_squared_error(endog_train, pred)
                     elif scoring == 'aic':
@@ -230,6 +232,32 @@ if model_option == 'SARIMAX':
                     continue
 
         return best_cfg, best_model_fit, best_score
+    
+    def fit_and_plot_sarimax(endog, exog, order, seasonal_order, df_plot_base, title):
+        model = SARIMAX(endog,
+                        exog=exog,
+                        order=order,
+                        seasonal_order=seasonal_order,
+                        enforce_stationarity=False,
+                        enforce_invertibility=False)
+        model_fit = model.fit(disp=False)
+        predictions = model_fit.predict(start=0, end=len(endog)-1, exog=exog)
+
+        df_plot = pd.DataFrame({'Actual': endog, 'Predicted': predictions})
+        st.subheader(title)
+        st.line_chart(df_plot)
+
+        mae = mean_absolute_error(endog, predictions)
+        mse = mean_squared_error(endog, predictions)
+        r2 = r2_score(endog, predictions)
+        mape = (abs((endog - predictions) / endog)).mean() * 100
+
+        st.write(f"Order: {order}, Seasonal Order: {seasonal_order}")
+        st.write(f"MAE: {mae:.2f}")
+        st.write(f"MSE: {mse:.2f}")
+        st.write(f"R2 Score: {r2:.2f}")
+        st.write(f"MAPE: {mape:.2f}%")
+
 
     st.title("SARIMAX Grid Search Forecasting")
 
@@ -240,9 +268,12 @@ if model_option == 'SARIMAX':
     df_holiday = df_holiday[['Segments/Departure Date', 'holiday']]
 
     # Persiapan data harian
-    df['Segments/Departure Date'] = pd.to_datetime(df['Segments/Departure Date']).dt.normalize()
-    df_daily = df.groupby('Segments/Departure Date')['Total Pax'].sum().reset_index()
-    df_daily = df_daily.merge(df_holiday, on='Segments/Departure Date', how='left')
+    df['Segments/Departure Date'] = pd.to_datetime(
+        df['Segments/Departure Date']).dt.normalize()
+    df_daily = df.groupby(
+        'Segments/Departure Date')['Total Pax'].sum().reset_index()
+    df_daily = df_daily.merge(
+        df_holiday, on='Segments/Departure Date', how='left')
     df_daily['holiday'] = df_daily['holiday'].fillna(0).astype(int)
     df_daily = df_daily[df_daily['Total Pax'] != 0]
 
@@ -260,7 +291,8 @@ if model_option == 'SARIMAX':
         'Total Pax': 'sum',
         'holiday': 'sum'
     }).reset_index()
-    df_7daily['Segments/Departure Date'] = df_7daily['Segments/Departure Date'] - pd.to_timedelta(6, unit='d')
+    df_7daily['Segments/Departure Date'] = df_7daily['Segments/Departure Date'] - \
+        pd.to_timedelta(6, unit='d')
     df_7daily = df_7daily[df_7daily['Total Pax'] != 0]
 
     # Filter 2022–2024
@@ -285,7 +317,7 @@ if model_option == 'SARIMAX':
     # st.write(df_daily)
     # st.write(df_7daily)
     # st.write(df_30daily)
-    
+
     train_ratio = 1
 
     # Harian
@@ -294,7 +326,7 @@ if model_option == 'SARIMAX':
     endog_test_daily = df_daily['Total Pax'].iloc[n_train_daily:]
     exog_train_daily = df_daily[['holiday']].iloc[:n_train_daily]
     exog_test_daily = df_daily[['holiday']].iloc[n_train_daily:]
-    
+
     # 7 Harian
     n_train_7d = int(len(df_7daily) * train_ratio)
     endog_train_7d = df_7daily['Total Pax'].iloc[:n_train_7d]
@@ -308,7 +340,7 @@ if model_option == 'SARIMAX':
     endog_test_30d = df_30daily['Total Pax'].iloc[n_train_30d:]
     exog_train_30d = df_30daily[['holiday']].iloc[:n_train_30d]
     exog_test_30d = df_30daily[['holiday']].iloc[n_train_30d:]
-    
+
     # Plot ACF dan PACF
     from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
     from statsmodels.tsa.stattools import adfuller
@@ -324,10 +356,10 @@ if model_option == 'SARIMAX':
     # plot_pacf(endog_train_daily, ax=ax_pacf, lags=30, method='ywm')
     # st.pyplot(fig_pacf)
 
-    # result = adfuller(endog_train_daily)    
+    # result = adfuller(endog_train_daily)
     # st.write('ADF Statistic:', result[0])
     # st.write('p-value:', result[1])
-    
+
     # # week
     # fig_acf, ax_acf = plt.subplots(figsize=(10, 4))
     # plot_acf(endog_train_7d, ax=ax_acf, lags=12)
@@ -337,10 +369,10 @@ if model_option == 'SARIMAX':
     # plot_pacf(endog_train_7d, ax=ax_pacf, lags=12, method='ywm')
     # st.pyplot(fig_pacf)
 
-    # result = adfuller(endog_train_7d)    
+    # result = adfuller(endog_train_7d)
     # st.write('ADF Statistic:', result[0])
     # st.write('p-value:', result[1])
-    
+
     # # month
     # fig_acf, ax_acf = plt.subplots(figsize=(10, 4))
     # plot_acf(endog_train_30d, ax=ax_acf, lags=12)
@@ -351,132 +383,180 @@ if model_option == 'SARIMAX':
     # st.pyplot(fig_pacf)
 
     # from statsmodels.tsa.stattools import adfuller
-    # result = adfuller(endog_train_30d)    
+    # result = adfuller(endog_train_30d)
     # st.write('ADF Statistic:', result[0])
     # st.write('p-value:', result[1])
-    
-    # Daily
-    # # Grid params
-    p = P = range(0, 4)
-    d = D = range(0, 1)
-    q = Q = range(0, 4)
-    s = [3, 7, 14]
 
-    best_cfg, best_model, best_score = sarimax_grid_search(
-        endog_train_daily, exog_train_daily,
-        p, d, q,
-        P, D, Q, s,
-        scoring='mse'
+    sarimaxOpt = st.sidebar.selectbox(
+        'Choose Time Window (in Days):',
+        ('Daily', 'Weekly', 'Monthly')
     )
 
-    st.write(f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
+    # if sarimaxOpt == 'Daily':
+    #     # Daily
+    #     # # Grid params
+    #     p = P = range(0, 4)
+    #     d = D = range(0, 1)
+    #     q = Q = range(0, 4)
+    #     s = [3, 7, 14]
 
-    params_df = pd.DataFrame({
-        'order_p': [best_cfg[0][0]],
-        'order_d': [best_cfg[0][1]],
-        'order_q': [best_cfg[0][2]],
-        'seasonal_order_P': [best_cfg[1][0]],
-        'seasonal_order_D': [best_cfg[1][1]],
-        'seasonal_order_Q': [best_cfg[1][2]],
-        'seasonal_order_s': [best_cfg[1][3]],
-        'MSE': [best_score]
-    })
+    #     best_cfg, best_model, best_score = sarimax_grid_search(
+    #         endog_train_daily, exog_train_daily,
+    #         p, d, q,
+    #         P, D, Q, s,
+    #         scoring='mse'
+    #     )
 
-    predictions = best_model.predict(start=0, end=len(df_daily)-1, exog=exog_train_daily)
+    #     st.write(
+    #         f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
 
-    df_plot = pd.DataFrame({'Actual': endog_train_daily, 'Predicted': predictions})
-    st.line_chart(df_plot)
+    #     params_df = pd.DataFrame({
+    #         'order_p': [best_cfg[0][0]],
+    #         'order_d': [best_cfg[0][1]],
+    #         'order_q': [best_cfg[0][2]],
+    #         'seasonal_order_P': [best_cfg[1][0]],
+    #         'seasonal_order_D': [best_cfg[1][1]],
+    #         'seasonal_order_Q': [best_cfg[1][2]],
+    #         'seasonal_order_s': [best_cfg[1][3]],
+    #         'MSE': [best_score]
+    #     })
 
-    mae = mean_absolute_error(endog_train_daily, predictions)
-    mse = mean_squared_error(endog_train_daily, predictions)
-    r2 = r2_score(endog_train_daily, predictions)
-    mape = (abs((endog_train_daily - predictions) / endog_train_daily)).mean() * 100
+    #     predictions = best_model.predict(
+    #         start=0, end=len(df_daily)-1, exog=exog_train_daily)
 
-    st.write(f"MAE: {mae:.2f}")
-    st.write(f"MSE: {mse:.2f}")
-    st.write(f"R2 Score: {r2:.2f}")
-    st.write(f"MAPE: {mape:.2f}%")
-    
-    # # Weekly
-    # # Grid params
-    # p = P = range(0, 2)
-    # d = D = range(0, 1)
-    # q = Q = range(0, 2)
-    # s = [4, 13, 26, 52]
+    #     df_plot = pd.DataFrame(
+    #         {'Actual': endog_train_daily, 'Predicted': predictions})
+    #     st.line_chart(df_plot)
 
-    # best_cfg, best_model, best_score = sarimax_grid_search(
-    #     endog_train_7d, exog_train_7d,
-    #     p, d, q,
-    #     P, D, Q, s,
-    #     scoring='mse'
-    # )
+    #     mae = mean_absolute_error(endog_train_daily, predictions)
+    #     mse = mean_squared_error(endog_train_daily, predictions)
+    #     r2 = r2_score(endog_train_daily, predictions)
+    #     mape = (abs((endog_train_daily - predictions) /
+    #             endog_train_daily)).mean() * 100
 
-    # st.write(f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
+    #     st.write(f"MAE: {mae:.2f}")
+    #     st.write(f"MSE: {mse:.2f}")
+    #     st.write(f"R2 Score: {r2:.2f}")
+    #     st.write(f"MAPE: {mape:.2f}%")
 
-    # params_df = pd.DataFrame({
-    #     'order_p': [best_cfg[0][0]],
-    #     'order_d': [best_cfg[0][1]],
-    #     'order_q': [best_cfg[0][2]],
-    #     'seasonal_order_P': [best_cfg[1][0]],
-    #     'seasonal_order_D': [best_cfg[1][1]],
-    #     'seasonal_order_Q': [best_cfg[1][2]],
-    #     'seasonal_order_s': [best_cfg[1][3]],
-    #     'MSE': [best_score]
-    # })
+    # elif sarimaxOpt == 'Weekly':
+    #     # Weekly
+    #     # Grid params
+    #     p = P = range(0, 2)
+    #     d = D = range(0, 1)
+    #     q = Q = range(0, 2)
+    #     s = [4, 13, 26, 52]
 
-    # predictions = best_model.predict(start=0, end=len(df_7daily)-1, exog=exog_train_7d)
+    #     best_cfg, best_model, best_score = sarimax_grid_search(
+    #         endog_train_7d, exog_train_7d,
+    #         p, d, q,
+    #         P, D, Q, s,
+    #         scoring='mse'
+    #     )
 
-    # df_plot = pd.DataFrame({'Actual': endog_train_7d, 'Predicted': predictions})
-    # st.line_chart(df_plot)
+    #     st.write(
+    #         f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
 
-    # mae = mean_absolute_error(endog_train_7d, predictions)
-    # mse = mean_squared_error(endog_train_7d, predictions)
-    # r2 = r2_score(endog_train_7d, predictions)
-    # mape = (abs((endog_train_7d - predictions) / endog_train_7d)).mean() * 100
+    #     params_df = pd.DataFrame({
+    #         'order_p': [best_cfg[0][0]],
+    #         'order_d': [best_cfg[0][1]],
+    #         'order_q': [best_cfg[0][2]],
+    #         'seasonal_order_P': [best_cfg[1][0]],
+    #         'seasonal_order_D': [best_cfg[1][1]],
+    #         'seasonal_order_Q': [best_cfg[1][2]],
+    #         'seasonal_order_s': [best_cfg[1][3]],
+    #         'MSE': [best_score]
+    #     })
 
-    # st.write(f"MAE: {mae:.2f}")
-    # st.write(f"MSE: {mse:.2f}")
-    # st.write(f"R2 Score: {r2:.2f}")
-    # st.write(f"MAPE: {mape:.2f}%")
+    #     predictions = best_model.predict(
+    #         start=0, end=len(df_7daily)-1, exog=exog_train_7d)
 
-    # # MONTHLY
-    # # # Grid params
-    # p = P = range(0, 4)
-    # d = D = range(0, 1)
-    # q = Q = range(0, 2)
-    # s = [1, 3, 6, 12]
+    #     df_plot = pd.DataFrame(
+    #         {'Actual': endog_train_7d, 'Predicted': predictions})
+    #     st.line_chart(df_plot)
 
-    # best_cfg, best_model, best_score = sarimax_grid_search(
-    #     endog_train_30d, exog_train_30d,
-    #     p, d, q,
-    #     P, D, Q, s,
-    #     scoring='mse'
-    # )
+    #     mae = mean_absolute_error(endog_train_7d, predictions)
+    #     mse = mean_squared_error(endog_train_7d, predictions)
+    #     r2 = r2_score(endog_train_7d, predictions)
+    #     mape = (abs((endog_train_7d - predictions) / endog_train_7d)).mean() * 100
 
-    # st.write(f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
+    #     st.write(f"MAE: {mae:.2f}")
+    #     st.write(f"MSE: {mse:.2f}")
+    #     st.write(f"R2 Score: {r2:.2f}")
+    #     st.write(f"MAPE: {mape:.2f}%")
 
-    # params_df = pd.DataFrame({
-    #     'order_p': [best_cfg[0][0]],
-    #     'order_d': [best_cfg[0][1]],
-    #     'order_q': [best_cfg[0][2]],
-    #     'seasonal_order_P': [best_cfg[1][0]],
-    #     'seasonal_order_D': [best_cfg[1][1]],
-    #     'seasonal_order_Q': [best_cfg[1][2]],
-    #     'seasonal_order_s': [best_cfg[1][3]],
-    #     'MSE': [best_score]
-    # })
+    # else:
+    #     # MONTHLY
+    #     # # Grid params
+    #     p = P = range(0, 4)
+    #     d = D = range(0, 1)
+    #     q = Q = range(0, 2)
+    #     s = [1, 3, 6, 12]
 
-    # predictions = best_model.predict(start=0, end=len(df_30daily)-1, exog=exog_train_30d)
+    #     best_cfg, best_model, best_score = sarimax_grid_search(
+    #         endog_train_30d, exog_train_30d,
+    #         p, d, q,
+    #         P, D, Q, s,
+    #         scoring='mse'
+    #     )
 
-    # df_plot = pd.DataFrame({'Actual': endog_train_30d, 'Predicted': predictions})
-    # st.line_chart(df_plot)
+    #     st.write(
+    #         f"Best SARIMAX order: {best_cfg[0]}, seasonal_order: {best_cfg[1]}, MSE: {best_score:.2f}")
 
-    # mae = mean_absolute_error(endog_train_30d, predictions)
-    # mse = mean_squared_error(endog_train_30d, predictions)
-    # r2 = r2_score(endog_train_30d, predictions)
-    # mape = (abs((endog_train_30d - predictions) / endog_train_30d)).mean() * 100
+    #     params_df = pd.DataFrame({
+    #         'order_p': [best_cfg[0][0]],
+    #         'order_d': [best_cfg[0][1]],
+    #         'order_q': [best_cfg[0][2]],
+    #         'seasonal_order_P': [best_cfg[1][0]],
+    #         'seasonal_order_D': [best_cfg[1][1]],
+    #         'seasonal_order_Q': [best_cfg[1][2]],
+    #         'seasonal_order_s': [best_cfg[1][3]],
+    #         'MSE': [best_score]
+    #     })
 
-    # st.write(f"MAE: {mae:.2f}")
-    # st.write(f"MSE: {mse:.2f}")
-    # st.write(f"R2 Score: {r2:.2f}")
-    # st.write(f"MAPE: {mape:.2f}%")
+    #     predictions = best_model.predict(
+    #         start=0, end=len(df_30daily)-1, exog=exog_train_30d)
+
+    #     df_plot = pd.DataFrame(
+    #         {'Actual': endog_train_30d, 'Predicted': predictions})
+    #     st.line_chart(df_plot)
+
+    #     mae = mean_absolute_error(endog_train_30d, predictions)
+    #     mse = mean_squared_error(endog_train_30d, predictions)
+    #     r2 = r2_score(endog_train_30d, predictions)
+    #     mape = (abs((endog_train_30d - predictions) / endog_train_30d)).mean() * 100
+
+    #     st.write(f"MAE: {mae:.2f}")
+    #     st.write(f"MSE: {mse:.2f}")
+    #     st.write(f"R2 Score: {r2:.2f}")
+    #     st.write(f"MAPE: {mape:.2f}%")
+
+    if sarimaxOpt == 'Daily':
+        fit_and_plot_sarimax(
+            endog=endog_train_daily,
+            exog=exog_train_daily,
+            order=(0, 0, 3),
+            seasonal_order=(1, 0, 2, 7),
+            df_plot_base=df_daily,
+            title="SARIMAX - Daily"
+        )
+
+    elif sarimaxOpt == 'Weekly':
+        fit_and_plot_sarimax(
+            endog=endog_train_7d,
+            exog=exog_train_7d,
+            order=(1, 0, 1),
+            seasonal_order=(0, 0, 1, 26),
+            df_plot_base=df_7daily,
+            title="SARIMAX - Weekly"
+        )
+
+    else:  # Monthly
+        fit_and_plot_sarimax(
+            endog=endog_train_30d,
+            exog=exog_train_30d,
+            order=(1, 0, 1),
+            seasonal_order=(0, 0, 1, 3),
+            df_plot_base=df_30daily,
+            title="SARIMAX - Monthly"
+        )
