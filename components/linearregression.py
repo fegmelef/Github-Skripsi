@@ -11,7 +11,7 @@ import scipy.stats as stats
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
-import statsmodels.api as sm
+# import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score
